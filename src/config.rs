@@ -194,6 +194,7 @@ fn main() {
 //   :.!pwd         replace the current line with command output
 //   :theme everforest / solarized-blue  change the colors
 //   :ls             list buffers · :b 2 switches · :bn / :bp cycles · :bd deletes
+//   Ctrl+6          switch to the last active buffer
 //   Tab             complete command names and file paths in the command prompt
 
 // Space is yours

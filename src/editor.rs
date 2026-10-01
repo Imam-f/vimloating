@@ -28,6 +28,7 @@ pub enum BufferAction {
     Open { path: PathBuf, replace: bool },
     Next,
     Previous,
+    Last,
     Select(String),
     List,
     Delete { target: Option<String>, force: bool },

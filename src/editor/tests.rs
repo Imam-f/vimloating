@@ -32,6 +32,23 @@ fn counted_delete_and_linewise_paste() {
 }
 
 #[test]
+fn capital_x_deletes_before_cursor_and_supports_count_undo_and_paste() {
+    let mut e = Editor::new("abcdef", None);
+    e.cursor.col = 4;
+    for c in "2X".chars() {
+        e.normal_key(c);
+    }
+    assert_eq!(e.text(), "abef");
+    assert_eq!(e.cursor.col, 2);
+    e.normal_key('P');
+    assert_eq!(e.text(), "abcdef");
+    e.undo(false);
+    assert_eq!(e.text(), "abef");
+    e.undo(false);
+    assert_eq!(e.text(), "abcdef");
+}
+
+#[test]
 fn visual_multiline_delete_preserves_boundary_text() {
     let mut e = Editor::new("abcd\nefgh\nijkl", None);
     e.cursor.col = 2;
@@ -298,11 +315,87 @@ fn explore_does_not_discard_unsaved_buffer_changes() {
     editor.insert_char('!');
     editor.escape();
 
-    editor.command("Explore");
+    let mut buffers = super::buffers::BufferList::new(editor);
+    buffers.active_mut().command("Explore");
+    buffers.process_pending();
+    assert!(buffers.active().is_directory_browser());
 
-    assert_eq!(editor.text(), "keep this buffer!");
-    assert!(!editor.is_directory_browser());
-    assert!(editor.message.contains("Unsaved changes"));
+    buffers.active_mut().command("bp");
+    buffers.process_pending();
+    assert_eq!(buffers.active().text(), "keep this buffer!");
+    assert!(buffers.active().dirty());
+}
+
+#[test]
+fn opening_another_file_keeps_unsaved_changes_in_the_previous_buffer() {
+    let unique = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!("vimloating-open-unsaved-{unique}.txt"));
+    fs::write(&path, "new file").unwrap();
+
+    let mut editor = Editor::new("unsaved", None);
+    editor.begin_insert('A');
+    editor.insert_char('!');
+    editor.escape();
+    let mut buffers = super::buffers::BufferList::new(editor);
+    buffers
+        .active_mut()
+        .command(&format!("e {}", path.display()));
+    buffers.process_pending();
+    assert_eq!(buffers.active().text(), "new file");
+
+    buffers.active_mut().begin_insert('A');
+    buffers.active_mut().insert_char('?');
+    buffers.active_mut().escape();
+    buffers
+        .active_mut()
+        .command(&format!("e {}", path.display()));
+    buffers.process_pending();
+    assert_eq!(buffers.active().text(), "new file?");
+    assert!(buffers.active().dirty());
+
+    buffers.active_mut().command("bp");
+    buffers.process_pending();
+    assert_eq!(buffers.active().text(), "unsaved!");
+    assert!(buffers.active().dirty());
+
+    fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn ctrl6_toggles_between_the_active_and_last_opened_buffer() {
+    let unique = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!("vimloating-alternate-buffer-{unique}"));
+    fs::create_dir_all(&root).unwrap();
+    let first_path = root.join("first.txt");
+    let second_path = root.join("second.txt");
+    fs::write(&first_path, "first").unwrap();
+    fs::write(&second_path, "second").unwrap();
+
+    let mut buffers = super::buffers::BufferList::new(Editor::new("welcome", None));
+    buffers
+        .active_mut()
+        .command(&format!("e {}", first_path.display()));
+    buffers.process_pending();
+    buffers
+        .active_mut()
+        .command(&format!("e {}", second_path.display()));
+    buffers.process_pending();
+    assert_eq!(buffers.active().text(), "second");
+
+    buffers.active_mut().buffer_action = Some(BufferAction::Last);
+    buffers.process_pending();
+    assert_eq!(buffers.active().text(), "first");
+    buffers.active_mut().buffer_action = Some(BufferAction::Last);
+    buffers.process_pending();
+    assert_eq!(buffers.active().text(), "second");
+
+    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

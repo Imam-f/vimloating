@@ -1,5 +1,5 @@
 use crate::config::VERTICAL_MOTION_STEP;
-use crate::editor::{Editor, Mode};
+use crate::editor::{BufferAction, Editor, Mode};
 use crate::render::text_grid;
 use macroquad::prelude::*;
 
@@ -42,6 +42,11 @@ pub fn handle_keyboard(
         return;
     }
     if ctrl {
+        if is_key_pressed(KeyCode::Key6) && editor.mode == Mode::Normal {
+            *vertical_motion = None;
+            editor.buffer_action = Some(BufferAction::Last);
+            return;
+        }
         if is_key_pressed(KeyCode::J) || is_key_pressed(KeyCode::K) {
             *vertical_motion = Some(VerticalMotion {
                 direction: if is_key_pressed(KeyCode::J) { 1 } else { -1 },
@@ -53,6 +58,7 @@ pub fn handle_keyboard(
         if [
             KeyCode::Minus,
             KeyCode::Equal,
+            KeyCode::Key6,
             KeyCode::S,
             KeyCode::Backspace,
             KeyCode::W,

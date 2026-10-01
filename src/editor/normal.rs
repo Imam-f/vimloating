@@ -190,6 +190,17 @@ impl Editor {
                 self.linewise = false;
                 self.clamp();
             }
+            'X' => {
+                if self.cursor.col > 0 {
+                    self.checkpoint();
+                    let row = self.cursor.row;
+                    let start = self.cursor.col.saturating_sub(n);
+                    self.register = vec![self.lines[row].drain(start..self.cursor.col).collect()];
+                    self.linewise = false;
+                    self.cursor.col = start;
+                    self.clamp();
+                }
+            }
             'D' => {
                 self.checkpoint();
                 self.register = vec![self.lines[self.cursor.row].split_off(self.cursor.col)];

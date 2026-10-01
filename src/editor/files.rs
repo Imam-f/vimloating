@@ -228,9 +228,7 @@ impl Editor {
                 self.force_quit = true;
             }
             "e" | "e!" => {
-                if cmd == "e" && self.dirty() {
-                    self.message = "Unsaved changes · :w first or :e! path".into();
-                } else if arg.is_empty() {
+                if arg.is_empty() {
                     self.message = "Usage: :e path/to/file".into();
                 } else {
                     self.buffer_action = Some(BufferAction::Open {
@@ -241,10 +239,6 @@ impl Editor {
                 }
             }
             "Ex" | "Explore" => {
-                if self.dirty() {
-                    self.message = "Unsaved changes · :w before browsing directories".into();
-                    return;
-                }
                 let directory = if !arg.is_empty() {
                     PathBuf::from(arg)
                 } else {

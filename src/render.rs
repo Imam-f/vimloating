@@ -303,27 +303,31 @@ pub fn draw_buffer(
     }
 
     if matches!(editor.mode, Mode::ShellOutput | Mode::BufferList) {
+        let panel_height = 480.0;
+        let panel_y = 890.0 - panel_height - 12.0;
+        let output_top = panel_y + 12.0;
+        let panel_rows = ((panel_height - 12.0) / line_height).floor().max(1.0) as usize;
         ui_rectangle(
             94.0,
-            TEXT_Y - 12.0,
+            panel_y,
             1480.0,
-            800.0,
+            panel_height,
             palette.background,
             scale,
         );
         if let Some(output) = &editor.output_view {
             let output_rows = output.lines().count();
-            let visible_rows = if output_rows > rows {
-                rows.saturating_sub(1)
+            let visible_rows = if output_rows > panel_rows {
+                panel_rows.saturating_sub(1)
             } else {
-                rows
+                panel_rows.min(rows)
             };
             for (visible, line) in output.lines().take(visible_rows).enumerate() {
                 let line: String = line.chars().take(cols).collect();
                 ui_label(
                     &line,
                     TEXT_X,
-                    TEXT_Y + visible as f32 * line_height + baseline,
+                    output_top + visible as f32 * line_height + baseline,
                     font_size,
                     if visible == 0 {
                         palette.accent
@@ -334,11 +338,11 @@ pub fn draw_buffer(
                     scale,
                 );
             }
-            if output_rows > rows {
+            if output_rows > panel_rows {
                 ui_label(
                     "… output truncated · Esc to close",
                     TEXT_X,
-                    TEXT_Y + visible_rows as f32 * line_height + baseline,
+                    output_top + visible_rows as f32 * line_height + baseline,
                     font_size,
                     palette.muted,
                     font,

@@ -49,7 +49,7 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `i` / `a` | Insert before / after the cursor |
 | `I` / `A` | Insert at first nonblank / line end |
 | `o` / `O` | Open a line below / above, preserving indentation |
-| `x` / `D` | Delete character / delete to end of line |
+| `x` / `X` / `D` | Delete under cursor / before cursor / to end of line |
 | `dd` / `yy` | Delete / yank a line |
 | `p` / `P` | Paste after / before from the internal register |
 | `v` / `V`, then movement | Select characters / whole lines |
@@ -57,6 +57,7 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `u` / `Ctrl+R` | Undo / redo |
 | `/pattern`, `Enter` | Find text, with highlights and wraparound |
 | `n` / `N` | Next / previous match |
+| `Ctrl+6` | Toggle to the last active buffer |
 | `Ctrl+E` / `Ctrl+Y` | Scroll down / up one display line |
 | `Ctrl+D` / `Ctrl+U` | Scroll down / up half a page |
 | `Ctrl+F` / `Ctrl+B` | Scroll down / up one page |
@@ -79,8 +80,8 @@ Type `:`, enter a command, and press Enter. Press Tab to complete command names 
 | --- | --- |
 | `:w` | Save |
 | `:w path/to/file` | Save under a filename |
-| `:e path/to/file` | Open a file |
-| `:e! path/to/file` | Open a file, discarding unsaved changes |
+| `:e path/to/file` | Open a file in another buffer; keep unsaved edits in the current buffer |
+| `:e! path/to/file` | Replace the current buffer, discarding unsaved changes |
 | `:Explore` / `:Ex [directory]` | Browse a directory; use `j`/`k`, Enter to open, and `-` for the parent |
 | `:!command` | Run a command in the current file's directory and show captured output; press Esc to return |
 | `:.!command` | Feed the current line to a command and replace it with the command's output |
@@ -89,7 +90,7 @@ Type `:`, enter a command, and press Enter. Press Tab to complete command names 
 | `:theme default` | Restore the Vimfloating palette |
 | `:ls` / `:buffers` | Show the buffer list; press Esc to return |
 | `:b {id or name}` | Switch to a buffer by its list number or filename |
-| `:bn` / `:bp` | Switch to the next / previous buffer |
+| `:bn` / `:bp` | Switch to the next / previous buffer; modified buffers stay open in memory |
 | `:bd` / `:b delete` | Delete the current buffer; add `!` to discard unsaved changes |
 | `:q` | Quit if there are no unsaved changes |
 | `:q!` | Quit and discard changes |

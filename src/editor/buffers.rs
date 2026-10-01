@@ -10,6 +10,7 @@ pub struct BufferList {
     slots: Vec<BufferSlot>,
     active: usize,
     next_id: usize,
+    last_active: Option<usize>,
 }
 
 impl BufferList {
@@ -18,6 +19,7 @@ impl BufferList {
             slots: vec![BufferSlot { id: 1, editor }],
             active: 0,
             next_id: 2,
+            last_active: None,
         }
     }
 
@@ -47,6 +49,7 @@ impl BufferList {
             Some(BufferAction::Open { path, replace }) => self.open(path, replace),
             Some(BufferAction::Next) => self.step(1),
             Some(BufferAction::Previous) => self.step(-1),
+            Some(BufferAction::Last) => self.switch_last(),
             Some(BufferAction::Select(query)) => self.select(&query),
             Some(BufferAction::List) => self.show_list(),
             Some(BufferAction::Delete { target, force }) => self.delete(target.as_deref(), force),
@@ -63,12 +66,16 @@ impl BufferList {
                 .position(|slot| same_path(slot.editor.path.as_deref(), Some(&path)))
         {
             if index == self.active {
-                match Editor::open_path(path) {
-                    Ok(mut editor) => {
-                        editor.theme = theme;
-                        self.slots[index].editor = editor;
+                if self.active().dirty() {
+                    self.active_mut().message = "Already open · unsaved changes kept".into();
+                } else {
+                    match Editor::open_path(path) {
+                        Ok(mut editor) => {
+                            editor.theme = theme;
+                            self.slots[index].editor = editor;
+                        }
+                        Err(err) => self.active_mut().message = format!("Open failed: {err}"),
                     }
-                    Err(err) => self.active_mut().message = format!("Open failed: {err}"),
                 }
             } else {
                 self.switch_to(index);
@@ -83,6 +90,7 @@ impl BufferList {
                     self.slots[self.active].editor = editor;
                     self.active_mut().message = format!("Opened {}", path.display());
                 } else {
+                    self.last_active = Some(self.slots[self.active].id);
                     let id = self.next_id;
                     self.next_id += 1;
                     self.slots.push(BufferSlot { id, editor });
@@ -105,13 +113,30 @@ impl BufferList {
     }
 
     fn switch_to(&mut self, index: usize) {
+        if index == self.active {
+            return;
+        }
         let theme = self.active().theme;
+        self.last_active = Some(self.slots[self.active].id);
         self.active = index;
         let id = self.slots[index].id;
         let name = self.slots[index].editor.name();
         let editor = &mut self.slots[index].editor;
         editor.theme = theme;
         editor.message = format!("Buffer {id}: {name}");
+    }
+
+    fn switch_last(&mut self) {
+        let Some(id) = self.last_active else {
+            self.active_mut().message = "No previous buffer".into();
+            return;
+        };
+        let Some(index) = self.slots.iter().position(|slot| slot.id == id) else {
+            self.last_active = None;
+            self.active_mut().message = "No previous buffer".into();
+            return;
+        };
+        self.switch_to(index);
     }
 
     fn select(&mut self, query: &str) {
@@ -166,7 +191,7 @@ impl BufferList {
             ));
         }
         output.push_str(
-            "\n:b {id|name}  switch    :bn/:bp  next/previous\n:bd  delete current buffer",
+            "\n:b {id|name}  switch    :bn/:bp  next/previous\nCtrl+6  last active    :bd  delete current buffer",
         );
         self.active_mut().show_buffer_list(output);
     }
@@ -192,6 +217,7 @@ impl BufferList {
         let theme = self.active().theme;
         let was_active = index == self.active;
         if self.slots.len() == 1 {
+            self.last_active = None;
             let mut editor = Editor::new("", None);
             editor.theme = theme;
             editor.message = format!("Deleted buffer {id} · empty buffer ready");
@@ -200,6 +226,9 @@ impl BufferList {
         }
 
         self.slots.remove(index);
+        if was_active || self.last_active == Some(id) {
+            self.last_active = None;
+        }
         if index < self.active {
             self.active -= 1;
         } else if index == self.active {
