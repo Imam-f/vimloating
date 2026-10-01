@@ -30,6 +30,9 @@ pub fn handle_keyboard(
         editor.escape();
         return;
     }
+    if matches!(editor.mode, Mode::ShellOutput | Mode::BufferList) {
+        return;
+    }
     if ctrl {
         if is_key_pressed(KeyCode::J) || is_key_pressed(KeyCode::K) {
             *vertical_motion = Some(VerticalMotion {
@@ -149,7 +152,15 @@ pub fn handle_keyboard(
                 }
             }
             Mode::Normal | Mode::Visual => editor.normal_key(ch),
+            Mode::ShellOutput | Mode::BufferList => {}
         }
+    }
+    if is_key_pressed(KeyCode::Enter)
+        && editor.mode == Mode::Normal
+        && editor.is_directory_browser()
+    {
+        editor.open_directory_entry();
+        return;
     }
     if matches!(editor.mode, Mode::Command | Mode::Search) {
         if is_key_pressed(KeyCode::Enter) {

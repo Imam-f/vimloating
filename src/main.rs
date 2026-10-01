@@ -6,7 +6,7 @@ mod view;
 
 use config::window_conf;
 use config::*;
-use editor::{Editor, Mode, Pos};
+use editor::{Editor, Mode, Pos, buffers::BufferList};
 use input::{VerticalMotion, advance_vertical_motion, handle_keyboard};
 use macroquad::prelude::*;
 use std::path::PathBuf;
@@ -37,10 +37,10 @@ async fn main() {
         }
     }
 
-    let mut editor = if let Some(path) = path {
-        match std::fs::read_to_string(&path) {
-            Ok(text) => Editor::new(&text, Some(path)),
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Editor::new("", Some(path)),
+    let editor = if let Some(path) = path {
+        match Editor::open_path(path.clone()) {
+            Ok(editor) => editor,
+            Err(_) if !path.exists() => Editor::new("", Some(path)),
             Err(err) => {
                 eprintln!("Cannot open {}: {err}", path.display());
                 return;
@@ -49,6 +49,7 @@ async fn main() {
     } else {
         Editor::new(WELCOME, None)
     };
+    let mut buffers = BufferList::new(editor);
 
     let font = render::system_font();
     let (target_width, target_height) = render::editor_target_dimensions();
@@ -66,6 +67,8 @@ async fn main() {
     prevent_quit();
 
     loop {
+        buffers.process_pending();
+        let editor = buffers.active_mut();
         let (target_width, target_height) = render::editor_target_dimensions();
         if target.texture.width() != target_width as f32
             || target.texture.height() != target_height as f32
@@ -85,14 +88,12 @@ async fn main() {
             || wheel_y != 0.0;
         view.update();
 
+        let cursor_before_keys = editor.cursor;
+        let word_wrap_before_keys = word_wrap;
         let mode_before_keys = editor.mode;
-        handle_keyboard(
-            &mut editor,
-            &mut font_size,
-            &mut word_wrap,
-            &mut vertical_motion,
-        );
-        advance_vertical_motion(&mut editor, &mut vertical_motion);
+        let directory_before_keys = editor.is_directory_browser();
+        handle_keyboard(editor, &mut font_size, &mut word_wrap, &mut vertical_motion);
+        advance_vertical_motion(editor, &mut vertical_motion);
         if editor.mode == Mode::Insert {
             let now = get_time();
             if mode_before_keys != Mode::Insert || input_activity {
@@ -106,6 +107,7 @@ async fn main() {
         }
         if mode_before_keys == Mode::Normal
             && editor.mode == Mode::Normal
+            && !directory_before_keys
             && is_key_pressed(KeyCode::Enter)
         {
             let now = get_time();
@@ -130,7 +132,10 @@ async fn main() {
 
         let (visible_rows, visible_cols, cell_width, line_height) = render::text_grid(font_size);
         if is_mouse_button_pressed(MouseButton::Left)
-            && !matches!(editor.mode, Mode::Command | Mode::Search)
+            && !matches!(
+                editor.mode,
+                Mode::Command | Mode::Search | Mode::ShellOutput | Mode::BufferList
+            )
             && let Some(point) = view.pick()
             && point.x >= TEXT_X
             && point.y >= TEXT_Y
@@ -151,22 +156,33 @@ async fn main() {
                 editor.clamp();
             }
         }
-        editor.reveal_cursor(visible_rows, visible_cols, word_wrap);
+        if word_wrap != word_wrap_before_keys {
+            editor.reveal_cursor(visible_rows, visible_cols, word_wrap);
+        } else {
+            editor.reveal_cursor_after_motion(
+                cursor_before_keys,
+                visible_rows,
+                visible_cols,
+                word_wrap,
+            );
+        }
+        buffers.protect_quit();
+        let editor = buffers.active();
         if editor.quit {
             break;
         }
 
         let render_scale = target.texture.width() / TEX_W as f32;
         render::draw_buffer(
-            &editor,
+            editor,
             &target,
             font.as_ref(),
             font_size,
             word_wrap,
             render_scale,
         );
-        render::draw_world(&view, &board, show_floor);
-        render::draw_overlay(help, view.flat_only, font.as_ref());
+        render::draw_world(&view, &board, show_floor, editor.theme);
+        render::draw_overlay(help, view.flat_only, font.as_ref(), editor.theme);
         frame += 1;
         if frame == 10
             && let Some(path) = &screenshot

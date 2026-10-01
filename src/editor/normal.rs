@@ -1,9 +1,33 @@
-use super::{Editor, Mode, Pos};
+use super::{BufferAction, Editor, Mode, Pos};
 
 impl Editor {
     fn visual_action(&mut self, delete: bool) {
         let (a, b) = self.selection();
         self.register.clear();
+        if self.visual_linewise {
+            self.register
+                .extend(self.lines[a.row..=b.row].iter().cloned());
+            self.linewise = true;
+            if delete {
+                self.checkpoint();
+                self.lines.drain(a.row..=b.row);
+                if self.lines.is_empty() {
+                    self.lines.push(vec![]);
+                }
+            }
+            self.cursor = Pos {
+                row: (if delete { a.row } else { self.cursor.row }).min(self.lines.len() - 1),
+                col: 0,
+            };
+            self.message = format!(
+                "{} {} line(s)",
+                if delete { "Deleted" } else { "Yanked" },
+                self.register.len()
+            );
+            self.escape();
+            self.clamp();
+            return;
+        }
         for row in a.row..=b.row {
             let start = if row == a.row { a.col } else { 0 };
             let end = if row == b.row {
@@ -24,6 +48,7 @@ impl Editor {
                 .extend_from_slice(&self.lines[b.row][(b.col + 1).min(self.lines[b.row].len())..]);
             self.lines.splice(a.row..=b.row, [merged]);
         }
+        self.message = format!("{} selection", if delete { "Deleted" } else { "Yanked" });
         self.cursor = a;
         self.escape();
     }
@@ -74,6 +99,26 @@ impl Editor {
 
     pub fn normal_key(&mut self, key: char) {
         self.horizontal_scroll_hold = false;
+        if self.is_directory_browser() {
+            if key == '-' {
+                if let Some(parent) = self.path.as_deref().and_then(std::path::Path::parent) {
+                    self.buffer_action = Some(BufferAction::Open {
+                        path: parent.to_path_buf(),
+                        replace: false,
+                    });
+                }
+                return;
+            }
+            if matches!(
+                key,
+                'i' | 'a' | 'I' | 'A' | 'o' | 'O' | 'x' | 'D' | 'd' | 'y' | 'v' | 'V' | 'p' | 'P'
+            ) {
+                self.message = "Directory listing is read-only · Enter opens entries".into();
+                self.pending = None;
+                self.count.clear();
+                return;
+            }
+        }
         if key.is_ascii_digit() && (key != '0' || !self.count.is_empty()) {
             if self.count.len() < 5 {
                 self.count.push(key);
@@ -158,11 +203,21 @@ impl Editor {
                 }
             }
             'v' => {
-                if self.mode == Mode::Visual {
+                if self.mode == Mode::Visual && !self.visual_linewise {
                     self.escape();
                 } else {
                     self.mode = Mode::Visual;
                     self.anchor = self.cursor;
+                    self.visual_linewise = false;
+                }
+            }
+            'V' => {
+                if self.mode == Mode::Visual && self.visual_linewise {
+                    self.escape();
+                } else {
+                    self.mode = Mode::Visual;
+                    self.anchor = self.cursor;
+                    self.visual_linewise = true;
                 }
             }
             ':' | '/' => {

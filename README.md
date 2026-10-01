@@ -52,8 +52,8 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `x` / `D` | Delete character / delete to end of line |
 | `dd` / `yy` | Delete / yank a line |
 | `p` / `P` | Paste after / before from the internal register |
-| `v`, then movement | Select a characterwise region |
-| `d` / `x` / `y` in Visual mode | Delete / delete / yank the selection |
+| `v` / `V`, then movement | Select characters / whole lines |
+| `d` / `x` / `y` in Visual mode | Delete / delete / yank the selection; line selections paste as lines |
 | `u` / `Ctrl+R` | Undo / redo |
 | `/pattern`, `Enter` | Find text, with highlights and wraparound |
 | `n` / `N` | Next / previous match |
@@ -79,6 +79,15 @@ Type `:`, enter a command, and press Enter. Paths can contain spaces; enter them
 | `:w path/to/file` | Save under a filename |
 | `:e path/to/file` | Open a file |
 | `:e! path/to/file` | Open a file, discarding unsaved changes |
+| `:Explore` / `:Ex [directory]` | Browse a directory; use `j`/`k`, Enter to open, and `-` for the parent |
+| `:!command` | Run a command in the current file's directory and show captured output; press Esc to return |
+| `:theme everforest` | Switch to the Everforest dark palette |
+| `:theme solarized-blue` | Switch to the blue Solarized Dark palette |
+| `:theme default` | Restore the Vimfloating palette |
+| `:ls` / `:buffers` | Show the buffer list; press Esc to return |
+| `:b {id or name}` | Switch to a buffer by its list number or filename |
+| `:bn` / `:bp` | Switch to the next / previous buffer |
+| `:bd` / `:b delete` | Delete the current buffer; add `!` to discard unsaved changes |
 | `:q` | Quit if there are no unsaved changes |
 | `:q!` | Quit and discard changes |
 | `:wq` / `:x` | Save and quit |
@@ -107,5 +116,9 @@ For a native OpenGL rendering smoke test, capture a frame and exit:
 cargo run -- --screenshot preview.png
 ```
 
-- `src/editor.rs`: text buffer, Vim state machine, search, history, file commands, and tests.
-- `src/main.rs`: window/input loop, offscreen text renderer, 3D scene, camera, and mouse picking.
+- `src/editor.rs` and `src/editor/`: buffer state, editing, Vim motions, file commands, viewport layout, and tests.
+- `src/config.rs`: window, renderer, and editor constants plus the welcome buffer.
+- `src/view.rs`: camera, zoom, orbit, pan, and surface picking.
+- `src/render.rs`: offscreen editor rendering and 3D scene.
+- `src/input.rs`: keyboard shortcuts and animated vertical movement.
+- `src/main.rs`: app setup and event loop.

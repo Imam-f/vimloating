@@ -1,5 +1,7 @@
+use crate::config::Theme;
 use std::path::PathBuf;
 
+pub mod buffers;
 mod editing;
 mod files;
 mod normal;
@@ -18,6 +20,17 @@ pub enum Mode {
     Visual,
     Command,
     Search,
+    ShellOutput,
+    BufferList,
+}
+
+pub enum BufferAction {
+    Open { path: PathBuf, replace: bool },
+    Next,
+    Previous,
+    Select(String),
+    List,
+    Delete { target: Option<String>, force: bool },
 }
 
 #[derive(Clone)]
@@ -31,22 +44,28 @@ pub struct Editor {
     pub cursor: Pos,
     pub mode: Mode,
     pub anchor: Pos,
+    pub visual_linewise: bool,
     pub path: Option<PathBuf>,
     pub message: String,
     pub prompt: String,
     pub search: String,
+    pub output_view: Option<String>,
+    pub theme: Theme,
+    pub buffer_action: Option<BufferAction>,
     pub top: usize,
     pub left: usize,
     horizontal_scroll_hold: bool,
     pub pending: Option<char>,
     pub count: String,
     pub quit: bool,
+    pub force_quit: bool,
     undo: Vec<Snapshot>,
     redo: Vec<Snapshot>,
     saved: String,
     register: Vec<Vec<char>>,
     linewise: bool,
     preferred_col: Option<usize>,
+    directory_entries: Option<Vec<PathBuf>>,
 }
 
 impl Editor {
@@ -57,22 +76,28 @@ impl Editor {
             cursor: Pos::default(),
             mode: Mode::Normal,
             anchor: Pos::default(),
+            visual_linewise: false,
             path,
             message: "Ready · :help for controls".into(),
             prompt: String::new(),
             search: String::new(),
+            output_view: None,
+            theme: Theme::default(),
+            buffer_action: None,
             top: 0,
             left: 0,
             horizontal_scroll_hold: false,
             pending: None,
             count: String::new(),
             quit: false,
+            force_quit: false,
             undo: vec![],
             redo: vec![],
             saved: text,
             register: vec![],
             linewise: true,
             preferred_col: None,
+            directory_entries: None,
         }
     }
 
@@ -143,10 +168,14 @@ impl Editor {
 
     pub fn escape(&mut self) {
         self.horizontal_scroll_hold = false;
+        if matches!(self.mode, Mode::ShellOutput | Mode::BufferList) {
+            self.output_view = None;
+        }
         if self.mode == Mode::Insert {
             self.cursor.col = self.cursor.col.saturating_sub(1);
         }
         self.mode = Mode::Normal;
+        self.visual_linewise = false;
         self.pending = None;
         self.count.clear();
         self.prompt.clear();
@@ -194,6 +223,29 @@ impl Editor {
 
     pub fn selection(&self) -> (Pos, Pos) {
         (self.anchor.min(self.cursor), self.anchor.max(self.cursor))
+    }
+
+    pub fn is_directory_browser(&self) -> bool {
+        self.directory_entries.is_some()
+    }
+
+    pub fn open_directory_entry(&mut self) {
+        let Some(entries) = &self.directory_entries else {
+            return;
+        };
+        let Some(path) = entries.get(self.cursor.row).cloned() else {
+            return;
+        };
+        self.buffer_action = Some(BufferAction::Open {
+            path,
+            replace: false,
+        });
+    }
+
+    pub fn show_buffer_list(&mut self, text: String) {
+        self.output_view = Some(text);
+        self.mode = Mode::BufferList;
+        self.message = "Buffer list · Esc to close · :b id/name to switch".into();
     }
 }
 

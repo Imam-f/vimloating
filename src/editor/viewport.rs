@@ -154,4 +154,16 @@ impl Editor {
             }
         }
     }
+
+    pub fn reveal_cursor_after_motion(
+        &mut self,
+        previous_cursor: Pos,
+        rows: usize,
+        cols: usize,
+        wrap: bool,
+    ) {
+        if self.cursor != previous_cursor {
+            self.reveal_cursor(rows, cols, wrap);
+        }
+    }
 }

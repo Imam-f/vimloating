@@ -45,6 +45,43 @@ fn visual_multiline_delete_preserves_boundary_text() {
 }
 
 #[test]
+fn visual_line_selection_yanks_and_pastes_complete_lines() {
+    let mut e = Editor::new("one\ntwo\nthree\nfour", None);
+    e.normal_key('V');
+    e.move_by(0, 1, 2);
+    e.normal_key('y');
+    assert_eq!(e.mode, Mode::Normal);
+    assert!(e.linewise);
+    assert_eq!(
+        e.register,
+        vec![
+            "one".chars().collect::<Vec<_>>(),
+            "two".chars().collect::<Vec<_>>(),
+            "three".chars().collect::<Vec<_>>()
+        ]
+    );
+
+    e.normal_key('p');
+    assert_eq!(e.text(), "one\ntwo\nthree\none\ntwo\nthree\nfour");
+}
+
+#[test]
+fn visual_line_selection_delete_keeps_an_editable_line() {
+    let mut e = Editor::new("one\ntwo\nthree", None);
+    e.cursor.row = 1;
+    e.normal_key('V');
+    e.move_by(0, -1, 1);
+    e.normal_key('d');
+    assert_eq!(e.text(), "three");
+    assert_eq!(e.cursor, Pos { row: 0, col: 0 });
+
+    e.normal_key('V');
+    e.normal_key('d');
+    assert_eq!(e.text(), "");
+    assert_eq!(e.lines.len(), 1);
+}
+
+#[test]
 fn search_wraps_and_uses_character_columns() {
     let mut e = Editor::new("é猫 x 猫\n猫", None);
     e.search = "猫".into();
@@ -136,6 +173,19 @@ fn horizontal_scroll_moves_the_buffer_view_without_moving_the_cursor() {
 }
 
 #[test]
+fn zoom_does_not_scroll_until_the_cursor_moves() {
+    let mut e = Editor::new("0\n1\n2\n3\n4\n5\n6\n7\n8\n9", None);
+    e.cursor.row = 8;
+    e.reveal_cursor_after_motion(e.cursor, 5, 20, true);
+    assert_eq!(e.top, 0);
+
+    let previous_cursor = e.cursor;
+    e.cursor.row = 9;
+    e.reveal_cursor_after_motion(previous_cursor, 5, 20, true);
+    assert_eq!(e.top, 5);
+}
+
+#[test]
 fn save_round_trip_and_failed_save_keeps_dirty_state() {
     let unique = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -158,5 +208,205 @@ fn save_round_trip_and_failed_save_keeps_dirty_state() {
     assert!(!e.save(Some(&path.join("missing/file").to_string_lossy())));
     assert!(e.dirty());
     assert_eq!(e.path.as_ref(), Some(&path));
+    fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn directory_browser_opens_subdirectories_and_files() {
+    let unique = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!("vimloating-netrw-{unique}"));
+    let subdir = root.join("folder");
+    fs::create_dir_all(&subdir).unwrap();
+    fs::write(subdir.join("notes.txt"), "browse me").unwrap();
+
+    let editor = Editor::open_path(root.clone()).unwrap();
+    let mut buffers = super::buffers::BufferList::new(editor);
+    assert!(buffers.active().is_directory_browser());
+    let folder_row = buffers
+        .active()
+        .directory_entries
+        .as_ref()
+        .unwrap()
+        .iter()
+        .position(|entry| entry.ends_with("folder"))
+        .unwrap();
+    buffers.active_mut().cursor.row = folder_row;
+    buffers.active_mut().open_directory_entry();
+    buffers.process_pending();
+    assert!(buffers.active().is_directory_browser());
+
+    let file_row = buffers
+        .active()
+        .directory_entries
+        .as_ref()
+        .unwrap()
+        .iter()
+        .position(|entry| entry.ends_with("notes.txt"))
+        .unwrap();
+    buffers.active_mut().cursor.row = file_row;
+    buffers.active_mut().open_directory_entry();
+    buffers.process_pending();
+    assert!(!buffers.active().is_directory_browser());
+    assert_eq!(buffers.active().text(), "browse me");
+
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn shell_command_captures_output_and_escape_returns_to_the_buffer() {
+    let mut editor = Editor::new("keep this buffer", None);
+    #[cfg(windows)]
+    editor.command("!echo vimloating-shell-test");
+    #[cfg(not(windows))]
+    editor.command("!printf vimloating-shell-test");
+
+    assert_eq!(editor.mode, Mode::ShellOutput);
+    assert!(
+        editor
+            .output_view
+            .as_deref()
+            .unwrap()
+            .contains("vimloating-shell-test")
+    );
+    editor.escape();
+    assert_eq!(editor.mode, Mode::Normal);
+    assert!(editor.output_view.is_none());
+    assert_eq!(editor.text(), "keep this buffer");
+}
+
+#[test]
+fn explore_does_not_discard_unsaved_buffer_changes() {
+    let mut editor = Editor::new("keep this buffer", None);
+    editor.begin_insert('A');
+    editor.insert_char('!');
+    editor.escape();
+
+    editor.command("Explore");
+
+    assert_eq!(editor.text(), "keep this buffer!");
+    assert!(!editor.is_directory_browser());
+    assert!(editor.message.contains("Unsaved changes"));
+}
+
+#[test]
+fn theme_command_switches_palettes_and_accepts_aliases() {
+    let mut editor = Editor::new("", None);
+    assert_eq!(editor.theme, crate::config::Theme::Vimfloating);
+
+    editor.command("theme everforest");
+    assert_eq!(editor.theme, crate::config::Theme::Everforest);
+    assert_eq!(editor.message, "Theme: Everforest");
+
+    editor.command("theme solarized-blue");
+    assert_eq!(editor.theme, crate::config::Theme::SolarizedBlue);
+    assert_eq!(editor.theme.name(), "Solarized Dark Blue");
+
+    editor.command("theme default");
+    assert_eq!(editor.theme, crate::config::Theme::Vimfloating);
+}
+
+#[test]
+fn buffers_can_be_listed_selected_cycled_and_deleted() {
+    let unique = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!("vimloating-buffers-{unique}"));
+    fs::create_dir_all(&root).unwrap();
+    let first_path = root.join("first.txt");
+    let second_path = root.join("second.txt");
+    fs::write(&first_path, "first buffer").unwrap();
+    fs::write(&second_path, "second buffer").unwrap();
+
+    let mut buffers = super::buffers::BufferList::new(Editor::new("welcome", None));
+    buffers
+        .active_mut()
+        .command(&format!("e {}", first_path.display()));
+    buffers.process_pending();
+    assert_eq!(buffers.active().text(), "first buffer");
+
+    buffers
+        .active_mut()
+        .command(&format!("e {}", second_path.display()));
+    buffers.process_pending();
+    assert_eq!(buffers.active().text(), "second buffer");
+
+    buffers.active_mut().command("bp");
+    buffers.process_pending();
+    assert_eq!(buffers.active().text(), "first buffer");
+    buffers
+        .active_mut()
+        .command(&format!("b {}", second_path.display()));
+    buffers.process_pending();
+    assert_eq!(buffers.active().text(), "second buffer");
+    buffers.active_mut().command("bp");
+    buffers.process_pending();
+    buffers.active_mut().command("bn");
+    buffers.process_pending();
+    assert_eq!(buffers.active().text(), "second buffer");
+
+    buffers.active_mut().command("ls");
+    buffers.process_pending();
+    assert_eq!(buffers.active().mode, Mode::BufferList);
+    assert!(
+        buffers
+            .active()
+            .output_view
+            .as_deref()
+            .unwrap()
+            .contains("first.txt")
+    );
+    buffers.active_mut().escape();
+
+    buffers.active_mut().command("b delete");
+    buffers.process_pending();
+    assert_eq!(buffers.active().text(), "first buffer");
+
+    buffers.active_mut().begin_insert('A');
+    buffers.active_mut().insert_char('!');
+    buffers.active_mut().escape();
+    buffers.active_mut().command("bd");
+    buffers.process_pending();
+    assert!(buffers.active().dirty());
+    buffers.active_mut().command("bd!");
+    buffers.process_pending();
+    assert_eq!(buffers.active().text(), "welcome");
+
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn quitting_checks_modified_hidden_buffers() {
+    let unique = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!("vimloating-hidden-buffer-{unique}.txt"));
+    fs::write(&path, "file buffer").unwrap();
+
+    let mut buffers = super::buffers::BufferList::new(Editor::new("welcome", None));
+    buffers
+        .active_mut()
+        .command(&format!("e {}", path.display()));
+    buffers.process_pending();
+    buffers.active_mut().command("bp");
+    buffers.process_pending();
+    buffers.active_mut().begin_insert('A');
+    buffers.active_mut().insert_char('!');
+    buffers.active_mut().escape();
+    buffers.active_mut().command("bn");
+    buffers.process_pending();
+
+    buffers.active_mut().command("q");
+    buffers.protect_quit();
+    assert!(!buffers.active().quit);
+    assert!(buffers.active().message.contains("Modified buffers"));
+
+    buffers.active_mut().command("q!");
+    buffers.protect_quit();
+    assert!(buffers.active().quit);
     fs::remove_file(path).unwrap();
 }

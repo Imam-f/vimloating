@@ -59,12 +59,12 @@ fn ui_rectangle(x: f32, y: f32, width: f32, height: f32, color: Color, scale: f3
     draw_rectangle(x * scale, y * scale, width * scale, height * scale, color);
 }
 
-fn mode_color(mode: Mode) -> Color {
+fn mode_color(mode: Mode, palette: ThemePalette) -> Color {
     match mode {
-        Mode::Insert => Color::from_hex(0x83b9f5),
-        Mode::Visual => Color::from_hex(0xc7a0f4),
-        Mode::Command | Mode::Search => Color::from_hex(0xeec181),
-        Mode::Normal => ACCENT,
+        Mode::Insert => palette.insert,
+        Mode::Visual => palette.visual,
+        Mode::Command | Mode::Search | Mode::ShellOutput | Mode::BufferList => palette.command,
+        Mode::Normal => palette.accent,
     }
 }
 
@@ -75,6 +75,8 @@ fn mode_name(mode: Mode) -> &'static str {
         Mode::Visual => "VISUAL",
         Mode::Command => "COMMAND",
         Mode::Search => "SEARCH",
+        Mode::ShellOutput => "SHELL",
+        Mode::BufferList => "BUFFERS",
     }
 }
 
@@ -97,6 +99,7 @@ pub fn draw_buffer(
     word_wrap: bool,
     scale: f32,
 ) {
+    let palette = editor.theme.palette();
     set_camera(&Camera2D {
         render_target: Some(target.clone()),
         ..Camera2D::from_display_rect(Rect::new(
@@ -106,16 +109,8 @@ pub fn draw_buffer(
             target.texture.height(),
         ))
     });
-    clear_background(Color::from_hex(0x101923));
-    ui_line(
-        90.0,
-        55.0,
-        90.0,
-        871.0,
-        1.0,
-        Color::from_hex(0x24313e),
-        scale,
-    );
+    clear_background(palette.background);
+    ui_line(90.0, 55.0, 90.0, 871.0, 1.0, palette.divider, scale);
 
     let (rows, cols, cell_width, line_height) = text_grid(font_size);
     let baseline = line_height * 0.78;
@@ -125,15 +120,7 @@ pub fn draw_buffer(
         let display_index = editor.top + visible;
         let y = TEXT_Y + visible as f32 * line_height;
         let Some(&(row, segment_start)) = display_rows.get(display_index) else {
-            ui_label(
-                "~",
-                48.0,
-                y + baseline,
-                23,
-                Color::from_hex(0x2f4352),
-                font,
-                scale,
-            );
+            ui_label("~", 48.0, y + baseline, 23, palette.gutter, font, scale);
             continue;
         };
         let line = &editor.lines[row];
@@ -150,7 +137,21 @@ pub fn draw_buffer(
                 y - 1.0,
                 1480.0,
                 line_height,
-                Color::from_hex(0x182735),
+                palette.current_line,
+                scale,
+            );
+        }
+        if editor.mode == Mode::Visual
+            && editor.visual_linewise
+            && editor.selection().0.row <= row
+            && row <= editor.selection().1.row
+        {
+            ui_rectangle(
+                94.0,
+                y - 1.0,
+                1480.0,
+                line_height,
+                palette.line_selection,
                 scale,
             );
         }
@@ -167,9 +168,9 @@ pub fn draw_buffer(
                 .round()
                 .max(10.0) as u16,
             if row == editor.cursor.row && segment_start == cursor_segment {
-                ACCENT
+                palette.accent
             } else {
-                MUTED
+                palette.muted
             },
             font,
             scale,
@@ -195,17 +196,10 @@ pub fn draw_buffer(
                     start + search.len() <= line.len()
                         && line[start..start + search.len()] == search
                 }) {
-                    ui_rectangle(
-                        x,
-                        y,
-                        cell_width,
-                        line_height - 1.0,
-                        Color::from_hex(0x544729),
-                        scale,
-                    );
+                    ui_rectangle(x, y, cell_width, line_height - 1.0, palette.search, scale);
                 }
             }
-            if editor.mode == Mode::Visual {
+            if editor.mode == Mode::Visual && !editor.visual_linewise {
                 let (a, b) = editor.selection();
                 let pos = Pos { row, col };
                 if a <= pos && pos <= b {
@@ -214,21 +208,21 @@ pub fn draw_buffer(
                         y,
                         cell_width,
                         line_height - 1.0,
-                        Color::from_hex(0x4e3e6b),
+                        palette.selection,
                         scale,
                     );
                 }
             }
             let color = if comment {
-                Color::from_hex(0x708b91)
+                palette.comment
             } else if quoted || ch == '"' {
-                Color::from_hex(0xc7d69b)
+                palette.string
             } else if ch.is_ascii_digit() {
-                Color::from_hex(0xd5abf1)
+                palette.number
             } else if "{}()[];:,.!".contains(ch) {
-                Color::from_hex(0x8c9cae)
+                palette.punctuation
             } else {
-                INK
+                palette.text
             };
             if ch != '\t' {
                 ui_label(
@@ -246,7 +240,7 @@ pub fn draw_buffer(
                     x,
                     y + baseline,
                     (font_size as f32 * 0.74) as u16,
-                    MUTED,
+                    palette.muted,
                     font,
                     scale,
                 );
@@ -281,7 +275,7 @@ pub fn draw_buffer(
                 line_height - 1.0,
                 Color {
                     a: alpha,
-                    ..mode_color(editor.mode)
+                    ..mode_color(editor.mode, palette)
                 },
                 scale,
             );
@@ -291,7 +285,7 @@ pub fn draw_buffer(
                 y,
                 cell_width,
                 line_height - 1.0,
-                mode_color(editor.mode),
+                mode_color(editor.mode, palette),
                 scale,
             );
             if let Some(ch) = editor.lines[editor.cursor.row].get(editor.cursor.col) {
@@ -300,7 +294,7 @@ pub fn draw_buffer(
                     x,
                     y + baseline,
                     font_size,
-                    Color::from_hex(0x10232a),
+                    palette.cursor_text,
                     font,
                     scale,
                 );
@@ -308,36 +302,87 @@ pub fn draw_buffer(
         }
     }
 
+    if matches!(editor.mode, Mode::ShellOutput | Mode::BufferList) {
+        ui_rectangle(
+            94.0,
+            TEXT_Y - 12.0,
+            1480.0,
+            800.0,
+            palette.background,
+            scale,
+        );
+        if let Some(output) = &editor.output_view {
+            let output_rows = output.lines().count();
+            let visible_rows = if output_rows > rows {
+                rows.saturating_sub(1)
+            } else {
+                rows
+            };
+            for (visible, line) in output.lines().take(visible_rows).enumerate() {
+                let line: String = line.chars().take(cols).collect();
+                ui_label(
+                    &line,
+                    TEXT_X,
+                    TEXT_Y + visible as f32 * line_height + baseline,
+                    font_size,
+                    if visible == 0 {
+                        palette.accent
+                    } else {
+                        palette.text
+                    },
+                    font,
+                    scale,
+                );
+            }
+            if output_rows > rows {
+                ui_label(
+                    "… output truncated · Esc to close",
+                    TEXT_X,
+                    TEXT_Y + visible_rows as f32 * line_height + baseline,
+                    font_size,
+                    palette.muted,
+                    font,
+                    scale,
+                );
+            }
+        }
+    }
+
+    ui_rectangle(0.0, 890.0, TEX_W as f32, 49.0, palette.status, scale);
     ui_rectangle(
         0.0,
         890.0,
-        TEX_W as f32,
+        170.0,
         49.0,
-        Color::from_hex(0x1c2b39),
+        mode_color(editor.mode, palette),
         scale,
     );
-    ui_rectangle(0.0, 890.0, 170.0, 49.0, mode_color(editor.mode), scale);
+    let mode_label = if editor.mode == Mode::Visual && editor.visual_linewise {
+        "VISUAL LINE"
+    } else {
+        mode_name(editor.mode)
+    };
     ui_label(
-        mode_name(editor.mode),
+        mode_label,
         25.0,
         922.0,
         23,
-        Color::from_hex(0x101923),
+        palette.cursor_text,
         font,
         scale,
     );
     let pending = format!("{}{}", editor.count, editor.pending.unwrap_or(' '));
-    ui_label(&pending, 196.0, 922.0, 23, ACCENT, font, scale);
+    ui_label(&pending, 196.0, 922.0, 23, palette.accent, font, scale);
     let wrap_label = if word_wrap { "WRAP ON" } else { "WRAP OFF" };
     let status = format!("{font_size}px  ·  {wrap_label}");
-    ui_label(&status, 295.0, 921.0, 19, MUTED, font, scale);
+    ui_label(&status, 295.0, 921.0, 19, palette.muted, font, scale);
     let position = format!(
         "Ln {}, Col {}    {} lines",
         editor.cursor.row + 1,
         editor.cursor.col + 1,
         editor.lines.len()
     );
-    ui_label(&position, 1040.0, 922.0, 22, INK, font, scale);
+    ui_label(&position, 1040.0, 922.0, 22, palette.text, font, scale);
     let prompt = if matches!(editor.mode, Mode::Command | Mode::Search) {
         format!(
             "{}{}|",
@@ -365,9 +410,9 @@ pub fn draw_buffer(
         977.0,
         22,
         if matches!(editor.mode, Mode::Command | Mode::Search) {
-            ACCENT
+            palette.accent
         } else {
-            MUTED
+            palette.muted
         },
         font,
         scale,
@@ -407,16 +452,17 @@ pub fn create_editor_target(width: u32, height: u32) -> RenderTarget {
     target
 }
 
-pub fn draw_world(view: &View, board: &Mesh, show_floor: bool) {
-    clear_background(Color::from_hex(0x080e17));
+pub fn draw_world(view: &View, board: &Mesh, show_floor: bool, theme: Theme) {
+    let palette = theme.palette();
+    clear_background(palette.world_background);
     set_camera(&view.camera());
     if show_floor {
         for i in -20..=20 {
             let p = i as f32 * 1.5;
             let color = if i == 0 {
-                Color::from_hex(0x1d3943)
+                palette.floor_axis
             } else {
-                Color::from_hex(0x14222e)
+                palette.floor
             };
             draw_line_3d(vec3(p, -4.55, -30.0), vec3(p, -4.55, 12.0), color);
             draw_line_3d(vec3(-30.0, -4.55, p), vec3(30.0, -4.55, p), color);
@@ -427,20 +473,25 @@ pub fn draw_world(view: &View, board: &Mesh, show_floor: bool) {
             vec3(0.0, 0.0, -0.13),
             vec3(BOARD_W + 0.13, BOARD_H + 0.13, 0.20),
             None,
-            Color::from_hex(0x233743),
+            palette.board_frame,
         );
         draw_cube_wires(
             vec3(0.0, 0.0, -0.13),
             vec3(BOARD_W + 0.14, BOARD_H + 0.14, 0.22),
-            Color::from_hex(0x41606a),
+            palette.board_border,
         );
-        draw_line_3d(vec3(-6.0, 3.81, 0.01), vec3(-3.4, 3.81, 0.01), ACCENT);
+        draw_line_3d(
+            vec3(-6.0, 3.81, 0.01),
+            vec3(-3.4, 3.81, 0.01),
+            palette.accent,
+        );
     }
     draw_mesh(board);
     set_default_camera();
 }
 
-pub fn draw_overlay(help: bool, flat_only: bool, font: Option<&Font>) {
+pub fn draw_overlay(help: bool, flat_only: bool, font: Option<&Font>, theme: Theme) {
+    let palette = theme.palette();
     let height = screen_height();
     if flat_only {
         return;
@@ -448,9 +499,16 @@ pub fn draw_overlay(help: bool, flat_only: bool, font: Option<&Font>) {
     if help {
         let x = (screen_width() - 357.0).max(20.0);
         let y = (height - 275.0).max(95.0);
-        draw_rectangle(x, y, 329.0, 220.0, Color::new(0.035, 0.065, 0.095, 0.92));
-        draw_rectangle_lines(x, y, 329.0, 220.0, 1.0, Color::from_hex(0x2a3d48));
-        label("MOVE THROUGH SPACE", x + 17.0, y + 28.0, 15, ACCENT, font);
+        draw_rectangle(x, y, 329.0, 220.0, palette.help_background);
+        draw_rectangle_lines(x, y, 329.0, 220.0, 1.0, palette.help_border);
+        label(
+            "MOVE THROUGH SPACE",
+            x + 17.0,
+            y + 28.0,
+            15,
+            palette.accent,
+            font,
+        );
         for (i, text) in [
             "wheel          zoom",
             "RMB outside pan; F4 unlocks orbit",
@@ -465,7 +523,14 @@ pub fn draw_overlay(help: bool, flat_only: bool, font: Option<&Font>) {
         .iter()
         .enumerate()
         {
-            label(text, x + 17.0, y + 53.0 + i as f32 * 20.0, 14, INK, font);
+            label(
+                text,
+                x + 17.0,
+                y + 53.0 + i as f32 * 20.0,
+                14,
+                palette.text,
+                font,
+            );
         }
     }
     label(
@@ -473,7 +538,7 @@ pub fn draw_overlay(help: bool, flat_only: bool, font: Option<&Font>) {
         29.0,
         height - 24.0,
         14,
-        MUTED,
+        palette.muted,
         font,
     );
 }
