@@ -27,7 +27,7 @@ Running without a filename opens an editable introduction buffer. Save it under 
 | Mouse wheel / trackpad scroll | Smoothly zoom in and out |
 | Right-button drag | Pan when started outside the editor; orbit from the surface when flat-only mode is disabled |
 | Middle-button drag | Pan the camera |
-| Left click on text | Position the cursor, including while tilted or zoomed |
+| Left click on text | Position the cursor, then highlight and underline the clicked character, including while tilted or zoomed |
 | `F2` | Smoothly return to the home view |
 | `F1` | Show/hide the camera-controls overlay |
 | `F3` | Toggle the perspective floor grid (off at startup) |
@@ -43,8 +43,8 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | --- | --- |
 | `h` `j` `k` `l` / arrow keys | Move left / down / up / right |
 | `w` `b` `e` | Next word / previous word / word end |
-| `f{char}` / `F{char}` | Find next / previous matching character on the line and highlight it |
-| `t{char}` / `T{char}` | Move just before / after the next / previous matching character and highlight it |
+| `f{char}` / `F{char}` | Find next / previous matching character on the line; pressing `f` / `F` highlights and underlines a suggested letter in every following / previous word |
+| `t{char}` / `T{char}` | Move just before / after the next / previous matching character; `t` / `T` show the same word-target hints |
 | `;` | Repeat the last character find in the same direction |
 | `{` / `}` | Previous / next paragraph |
 | `(` / `)` | Previous / next sentence |
@@ -63,8 +63,8 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `d` / `x` / `y` in Visual mode | Delete / delete / yank the selection; line selections paste as lines |
 | `zz` | Center the cursor line in the view |
 | `u` / `Ctrl+R` | Undo / redo |
-| `/pattern`, `Enter` | Find text, with highlights and wraparound |
-| `n` / `N` | Next / previous match |
+| `/pattern` / `?pattern`, `Enter` | Search forward / backward with live highlights and wraparound |
+| `n` / `N` | Repeat in the last search direction / opposite direction |
 | `Ctrl+6` | Toggle to the last active buffer |
 | `Ctrl+E` / `Ctrl+Y` | Scroll down / up one display line |
 | `Ctrl+D` / `Ctrl+U` | Scroll down / up half a page, then center the view |
@@ -77,6 +77,8 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `Ctrl+-` / `Ctrl+=` | Decrease / increase font size |
 
 Counts work with movements and common operations, such as `5j`, `3w`, `2dd`, `4yy`, and `2p`. Each Insert session is one undo step. In Insert mode, Enter auto-indents, Tab inserts four spaces, and Backspace/Delete can join adjacent lines. After 15 seconds without keyboard, pointer, mouse-button, or scroll activity, Insert mode automatically returns to Normal. Vertical scroll keys keep the cursor visible, and can scroll past the end until only the final display line remains visible.
+
+Character-find hints prefer the letter in each word requiring the fewest `;` repeats to reach; ties favor letters that occur less often in that word.
 
 Word wrap is on by default. Press Enter twice quickly in Normal mode to toggle it. `Ctrl+H` / `Ctrl+L` scroll the text horizontally; using either shortcut turns wrapping off so long lines can be scrolled. Font size can be adjusted from 12–42 px with the Ctrl+-/= shortcuts.
 

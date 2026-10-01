@@ -32,6 +32,124 @@ fn counted_delete_and_linewise_paste() {
 }
 
 #[test]
+fn single_angle_brackets_indent_and_unindent_the_current_line() {
+    let mut e = Editor::new("  value\nnext", None);
+    e.cursor = Pos { row: 0, col: 3 };
+
+    e.normal_key('>');
+
+    assert_eq!(e.text(), "      value\nnext");
+    assert_eq!(e.cursor, Pos { row: 0, col: 7 });
+    e.undo(false);
+    assert_eq!(e.text(), "  value\nnext");
+    assert_eq!(e.cursor, Pos { row: 0, col: 3 });
+
+    e.normal_key('<');
+
+    assert_eq!(e.text(), "value\nnext");
+    assert_eq!(e.cursor, Pos { row: 0, col: 1 });
+}
+
+#[test]
+fn moving_a_line_reindents_it_to_the_previous_nonblank_line() {
+    let mut e = Editor::new("root\n    moved\n   \nsibling", None);
+    e.cursor = Pos { row: 1, col: 6 };
+
+    e.move_line(1);
+
+    assert_eq!(e.text(), "root\n   \nmoved\nsibling");
+    assert_eq!(e.cursor, Pos { row: 2, col: 2 });
+    e.undo(false);
+    assert_eq!(e.text(), "root\n    moved\n   \nsibling");
+    assert_eq!(e.cursor, Pos { row: 1, col: 6 });
+}
+
+#[test]
+fn moving_a_line_at_the_document_edge_is_a_noop() {
+    let mut e = Editor::new("first\nsecond", None);
+
+    e.move_line(-1);
+
+    assert_eq!(e.text(), "first\nsecond");
+    assert!(e.undo.is_empty());
+}
+
+#[test]
+fn visual_indent_applies_to_every_selected_line_and_undo_restores_endpoints() {
+    let mut e = Editor::new("alpha\n  beta\ngamma", None);
+    e.normal_key('V');
+    e.move_by(0, 1, 1);
+
+    e.normal_key('>');
+
+    assert_eq!(e.text(), "    alpha\n      beta\ngamma");
+    assert_eq!(e.mode, Mode::Visual);
+    assert_eq!(e.anchor, Pos { row: 0, col: 0 });
+    assert_eq!(e.cursor, Pos { row: 1, col: 0 });
+
+    e.undo(false);
+
+    assert_eq!(e.text(), "alpha\n  beta\ngamma");
+    assert_eq!(e.anchor, Pos { row: 0, col: 0 });
+    assert_eq!(e.cursor, Pos { row: 1, col: 0 });
+}
+
+#[test]
+fn characterwise_visual_indent_keeps_selection_endpoints_attached_to_text() {
+    let mut e = Editor::new("alpha\n  beta\ngamma", None);
+    e.cursor.col = 1;
+    e.normal_key('v');
+    e.move_by(0, 1, 1);
+
+    e.normal_key('>');
+
+    assert_eq!(e.text(), "    alpha\n      beta\ngamma");
+    assert_eq!(e.anchor, Pos { row: 0, col: 5 });
+    assert_eq!(e.cursor, Pos { row: 1, col: 5 });
+
+    e.undo(false);
+
+    assert_eq!(e.anchor, Pos { row: 0, col: 1 });
+    assert_eq!(e.cursor, Pos { row: 1, col: 1 });
+}
+
+#[test]
+fn visual_alt_j_moves_the_selected_block_and_preserves_its_selection() {
+    let mut e = Editor::new("root\n    alpha\n      child\nsibling\ntail", None);
+    e.cursor = Pos { row: 1, col: 0 };
+    e.normal_key('V');
+    e.move_by(0, 1, 1);
+
+    e.move_line(1);
+
+    assert_eq!(e.text(), "root\nsibling\nalpha\n  child\ntail");
+    assert_eq!(e.mode, Mode::Visual);
+    assert_eq!(e.anchor, Pos { row: 2, col: 0 });
+    assert_eq!(e.cursor, Pos { row: 3, col: 0 });
+
+    e.undo(false);
+
+    assert_eq!(e.text(), "root\n    alpha\n      child\nsibling\ntail");
+    assert_eq!(e.anchor, Pos { row: 1, col: 0 });
+    assert_eq!(e.cursor, Pos { row: 2, col: 0 });
+}
+
+#[test]
+fn visual_alt_k_moves_a_reversed_selection_up_as_a_block() {
+    let mut e = Editor::new("root\nsibling\n    alpha\n      child\ntail", None);
+    e.cursor = Pos { row: 3, col: 0 };
+    e.normal_key('V');
+    e.move_by(0, -1, 1);
+
+    e.move_line(-1);
+
+    assert_eq!(e.text(), "root\nalpha\n  child\nsibling\ntail");
+    assert_eq!(e.mode, Mode::Visual);
+    assert_eq!(e.anchor, Pos { row: 2, col: 0 });
+    assert_eq!(e.cursor, Pos { row: 1, col: 0 });
+}
+
+#[test]
 fn capital_x_deletes_before_cursor_and_supports_count_undo_and_paste() {
     let mut e = Editor::new("abcdef", None);
     e.cursor.col = 4;
@@ -136,6 +254,65 @@ fn character_find_motions_repeat_and_highlight_the_matched_target() {
 }
 
 #[test]
+fn character_find_suggests_letters_in_every_following_or_previous_word() {
+    let mut forward = Editor::new("aaa abc deff", None);
+    forward.normal_key('f');
+    assert_eq!(forward.pending, Some('f'));
+    assert_eq!(
+        forward.char_find_hints,
+        vec![Pos { row: 0, col: 5 }, Pos { row: 0, col: 8 }]
+    );
+    forward.normal_key('b');
+    assert_eq!(forward.cursor, Pos { row: 0, col: 5 });
+    assert!(forward.char_find_hints.is_empty());
+    assert_eq!(forward.char_find_highlight, Some(Pos { row: 0, col: 5 }));
+
+    let mut backward = Editor::new("cat axa dog", None);
+    backward.cursor.col = 10;
+    backward.normal_key('F');
+    assert_eq!(
+        backward.char_find_hints,
+        vec![Pos { row: 0, col: 2 }, Pos { row: 0, col: 5 }]
+    );
+    backward.normal_key('x');
+    assert_eq!(backward.cursor, Pos { row: 0, col: 5 });
+}
+
+#[test]
+fn backward_character_find_hints_remain_searchable_with_leading_separators() {
+    for prefix in ["  ", "(", "\t"] {
+        for motion in ['F', 'T'] {
+            let mut e = Editor::new(&format!("{prefix}cat axa dog"), None);
+            let offset = prefix.chars().count();
+            e.cursor.col = offset + 10;
+            e.normal_key(motion);
+
+            let targets = [
+                Pos {
+                    row: 0,
+                    col: offset + 2,
+                },
+                Pos {
+                    row: 0,
+                    col: offset + 5,
+                },
+            ];
+            for target in targets {
+                assert!(
+                    e.char_find_hints.binary_search(&target).is_ok(),
+                    "{motion} hint at {target:?} is not searchable with prefix {prefix:?}: {:?}",
+                    e.char_find_hints
+                );
+            }
+
+            e.normal_key('x');
+            assert_eq!(e.char_find_highlight, Some(targets[1]));
+            assert_eq!(e.cursor.col, offset + 5 + usize::from(motion == 'T'));
+        }
+    }
+}
+
+#[test]
 fn counted_character_find_uses_the_requested_occurrence() {
     let mut e = Editor::new("a x a y a", None);
     for key in "2fa".chars() {
@@ -194,24 +371,77 @@ fn search_wraps_and_uses_character_columns() {
     let mut e = Editor::new("é猫 x 猫\n猫", None);
     e.search = "猫".into();
     e.find(false);
+    e.advance_search();
     assert_eq!(e.cursor, Pos { row: 0, col: 1 });
     e.find(true);
+    e.advance_search();
     assert_eq!(e.cursor, Pos { row: 1, col: 0 });
     e.find(false);
+    e.advance_search();
     assert_eq!(e.cursor, Pos { row: 0, col: 1 });
 }
 
 #[test]
-fn brace_motions_move_between_paragraph_starts_and_support_counts() {
-    let mut e = Editor::new("alpha\ncontinued\n\nbeta\ncontinued\n\nomega", None);
+fn backward_search_and_n_n_follow_the_search_direction() {
+    let mut e = Editor::new("cat dog cat dog", None);
+    e.cursor.col = 14;
+    e.normal_key('?');
+    assert_eq!(e.mode, Mode::Search);
+    assert!(e.search_prompt_backwards);
+    e.prompt = "dog".into();
+    e.submit_prompt();
+    e.advance_search();
+    assert_eq!(e.cursor, Pos { row: 0, col: 12 });
+
+    e.normal_key('n');
+    e.advance_search();
+    assert_eq!(e.cursor, Pos { row: 0, col: 4 });
+
+    e.normal_key('N');
+    e.advance_search();
+    assert_eq!(e.cursor, Pos { row: 0, col: 12 });
+
+    e.normal_key('n');
+    e.advance_search();
+    assert_eq!(e.cursor, Pos { row: 0, col: 4 });
+}
+
+#[test]
+fn long_search_work_is_spread_across_frames() {
+    let mut e = Editor::new(&format!("{}needle", "x".repeat(50_000)), None);
+    e.search = "needle".into();
+    e.find(false);
+
+    assert_eq!(e.cursor, Pos { row: 0, col: 0 });
+    assert!(e.search_task.is_some());
+
+    e.advance_search();
+    assert_eq!(e.cursor, Pos { row: 0, col: 0 });
+    assert!(e.search_task.is_some());
+
+    while e.search_task.is_some() {
+        e.advance_search();
+    }
+    assert_eq!(
+        e.cursor,
+        Pos {
+            row: 0,
+            col: 50_000
+        }
+    );
+}
+
+#[test]
+fn brace_motions_move_to_empty_separator_lines_and_support_counts() {
+    let mut e = Editor::new("alpha\ncontinued\n \nbeta\ncontinued\n\nomega", None);
     e.cursor.row = 1;
     for key in "2}".chars() {
         e.normal_key(key);
     }
-    assert_eq!(e.cursor, Pos { row: 6, col: 0 });
+    assert_eq!(e.cursor, Pos { row: 5, col: 0 });
 
     e.normal_key('{');
-    assert_eq!(e.cursor, Pos { row: 3, col: 0 });
+    assert_eq!(e.cursor, Pos { row: 2, col: 0 });
     e.normal_key('{');
     assert_eq!(e.cursor, Pos { row: 0, col: 0 });
 }
@@ -300,16 +530,17 @@ fn wrapped_visual_rows_track_long_lines_and_insert_end() {
 }
 
 #[test]
-fn horizontal_scroll_moves_the_buffer_view_without_moving_the_cursor() {
+fn horizontal_scroll_moves_the_cursor_to_the_left_edge_when_it_would_be_hidden() {
     let mut e = Editor::new("abcdefghijklmnopqrstuvwxyz", None);
     e.scroll_horizontal(1, 10);
     e.reveal_cursor(5, 10, false);
     assert_eq!(e.left, 5);
-    assert_eq!(e.cursor.col, 0);
+    assert_eq!(e.cursor.col, 5);
 
-    e.move_by(1, 0, 1);
+    e.scroll_horizontal(1, 10);
     e.reveal_cursor(5, 10, false);
-    assert_eq!(e.left, 1);
+    assert_eq!(e.left, 10);
+    assert_eq!(e.cursor.col, 10);
 }
 
 #[test]
@@ -324,6 +555,34 @@ fn vertical_scroll_can_overscroll_until_only_the_last_line_is_visible() {
     e.scroll_vertical(-1, 1, 5, 20, false);
     assert_eq!(e.top, 8);
     assert_eq!(e.cursor.row, 9);
+}
+
+#[test]
+fn display_page_motion_moves_the_cursor_by_the_requested_rows() {
+    let text = (0..30)
+        .map(|row| row.to_string())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let mut e = Editor::new(&text, None);
+    e.cursor.row = 10;
+
+    e.move_by_display_rows(1, 10, 20, 80, false);
+    assert_eq!(e.cursor.row, 20);
+    assert_eq!(e.top, 10);
+
+    e.move_by_display_rows(-1, 10, 20, 80, false);
+    assert_eq!(e.cursor.row, 10);
+    assert_eq!(e.top, 0);
+}
+
+#[test]
+fn display_page_motion_tracks_wrapped_screen_rows() {
+    let mut e = Editor::new("abcdefghij\nnext", None);
+    e.cursor = Pos { row: 0, col: 1 };
+
+    e.move_by_display_rows(1, 1, 5, 4, true);
+
+    assert_eq!(e.cursor, Pos { row: 0, col: 5 });
 }
 
 #[test]

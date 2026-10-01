@@ -18,6 +18,17 @@ pub struct ScrollRepeat {
 const KEY_REPEAT_DELAY: f64 = 0.35;
 const KEY_REPEAT_INTERVAL: f64 = 0.06;
 
+fn promote_shifted_find_key(chars: &mut Vec<char>, lower: char, upper: char, pressed: bool) {
+    if !pressed {
+        return;
+    }
+    if let Some(index) = chars.iter().position(|&ch| ch == lower || ch == upper) {
+        chars[index] = upper;
+    } else {
+        chars.insert(0, upper);
+    }
+}
+
 pub fn handle_keyboard(
     editor: &mut Editor,
     font_size: &mut u16,
@@ -29,6 +40,14 @@ pub fn handle_keyboard(
     while let Some(ch) = get_char_pressed() {
         chars.push(ch);
     }
+    let shift_down = is_key_down(KeyCode::LeftShift)
+        || is_key_down(KeyCode::RightShift)
+        || is_key_pressed(KeyCode::LeftShift)
+        || is_key_pressed(KeyCode::RightShift);
+    let shifted_f = shift_down && is_key_pressed(KeyCode::F);
+    let shifted_t = shift_down && is_key_pressed(KeyCode::T);
+    promote_shifted_find_key(&mut chars, 'f', 'F', shifted_f);
+    promote_shifted_find_key(&mut chars, 't', 'T', shifted_t);
     let ctrl = is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl);
     if !ctrl {
         *scroll_repeat = None;
@@ -161,26 +180,27 @@ pub fn handle_keyboard(
         let scroll_up = scroll_up || repeated_scroll == Some(KeyCode::Y);
         let scroll_down = scroll_down || repeated_scroll == Some(KeyCode::E);
         let (rows, cols, _, _) = text_grid(*font_size);
-        if scroll_up || scroll_down {
+        if is_key_pressed(KeyCode::D) || is_key_pressed(KeyCode::U) {
+            editor.move_by_display_rows(
+                if is_key_pressed(KeyCode::D) { 1 } else { -1 },
+                (rows / 2).max(1),
+                rows,
+                cols,
+                *word_wrap,
+            );
+        } else if scroll_up || scroll_down {
             let (direction, amount) =
                 if repeated_scroll == Some(KeyCode::E) || is_key_pressed(KeyCode::E) {
                     (1, 1)
                 } else if repeated_scroll == Some(KeyCode::Y) || is_key_pressed(KeyCode::Y) {
                     (-1, 1)
-                } else if is_key_pressed(KeyCode::D) {
-                    (1, rows / 2)
-                } else if is_key_pressed(KeyCode::U) {
-                    (-1, rows / 2)
                 } else if is_key_pressed(KeyCode::F) {
                     (1, rows)
                 } else {
                     (-1, rows)
                 };
             editor.scroll_vertical(direction, amount.max(1), rows, cols, *word_wrap);
-            if [KeyCode::D, KeyCode::U, KeyCode::F, KeyCode::B]
-                .into_iter()
-                .any(is_key_pressed)
-            {
+            if [KeyCode::F, KeyCode::B].into_iter().any(is_key_pressed) {
                 editor.center_cursor(rows, cols, *word_wrap);
             }
         }
@@ -196,6 +216,19 @@ pub fn handle_keyboard(
             editor.escape();
         }
         return;
+    }
+    let alt = is_key_down(KeyCode::LeftAlt) || is_key_down(KeyCode::RightAlt);
+    if alt && matches!(editor.mode, Mode::Normal | Mode::Visual) {
+        if is_key_pressed(KeyCode::J) {
+            *vertical_motion = None;
+            editor.move_line(1);
+            return;
+        }
+        if is_key_pressed(KeyCode::K) {
+            *vertical_motion = None;
+            editor.move_line(-1);
+            return;
+        }
     }
     if !chars.is_empty()
         || is_key_pressed(KeyCode::Left)
@@ -294,13 +327,36 @@ pub fn handle_keyboard(
         editor.move_by(0, -1, text_grid(*font_size).0 - 2);
     }
     if is_key_pressed(KeyCode::Home) {
+        editor.cancel_search();
+        editor.char_find_hints.clear();
         editor.follow_cursor_horizontally();
         editor.cursor.col = 0;
     }
     if is_key_pressed(KeyCode::End) {
+        editor.cancel_search();
+        editor.char_find_hints.clear();
         editor.follow_cursor_horizontally();
         editor.cursor.col = editor.lines[editor.cursor.row].len();
         editor.clamp();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::promote_shifted_find_key;
+
+    #[test]
+    fn shifted_find_keys_are_preserved_even_when_character_events_are_missing() {
+        let mut chars = vec!['f', 'x'];
+        promote_shifted_find_key(&mut chars, 'f', 'F', true);
+        assert_eq!(chars, vec!['F', 'x']);
+
+        let mut chars = vec!['x'];
+        promote_shifted_find_key(&mut chars, 't', 'T', true);
+        assert_eq!(chars, vec!['T', 'x']);
+
+        promote_shifted_find_key(&mut chars, 'f', 'F', false);
+        assert_eq!(chars, vec!['T', 'x']);
     }
 }
 

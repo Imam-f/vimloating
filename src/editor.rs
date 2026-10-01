@@ -47,10 +47,23 @@ struct CharFind {
     till: bool,
 }
 
+struct SearchTask {
+    needle: Vec<char>,
+    backwards: bool,
+    origin: Pos,
+    candidate: Pos,
+    wrapped: bool,
+    compare_offset: Option<usize>,
+    advance_candidate: bool,
+    remaining: usize,
+    last_match: Option<Pos>,
+}
+
 #[derive(Clone)]
 struct Snapshot {
     lines: Vec<Vec<char>>,
     cursor: Pos,
+    anchor: Pos,
 }
 
 pub struct Editor {
@@ -63,7 +76,10 @@ pub struct Editor {
     pub message: String,
     pub prompt: String,
     pub search: String,
+    pub search_backwards: bool,
+    pub search_prompt_backwards: bool,
     pub char_find_highlight: Option<Pos>,
+    pub char_find_hints: Vec<Pos>,
     pub output_view: Option<String>,
     pub theme: Theme,
     pub buffer_action: Option<BufferAction>,
@@ -81,6 +97,7 @@ pub struct Editor {
     linewise: bool,
     preferred_col: Option<usize>,
     last_char_find: Option<CharFind>,
+    search_task: Option<SearchTask>,
     directory_entries: Option<Vec<PathBuf>>,
     completion_cycle: Option<CompletionCycle>,
 }
@@ -98,7 +115,10 @@ impl Editor {
             message: "Ready · :help for controls".into(),
             prompt: String::new(),
             search: String::new(),
+            search_backwards: false,
+            search_prompt_backwards: false,
             char_find_highlight: None,
+            char_find_hints: Vec::new(),
             output_view: None,
             theme: Theme::default(),
             buffer_action: None,
@@ -116,6 +136,7 @@ impl Editor {
             linewise: true,
             preferred_col: None,
             last_char_find: None,
+            search_task: None,
             directory_entries: None,
             completion_cycle: None,
         }
@@ -144,6 +165,7 @@ impl Editor {
         Snapshot {
             lines: self.lines.clone(),
             cursor: self.cursor,
+            anchor: self.anchor,
         }
     }
 
@@ -156,6 +178,7 @@ impl Editor {
     }
 
     pub fn undo(&mut self, redo: bool) {
+        self.search_task = None;
         let state = if redo {
             self.redo.pop()
         } else {
@@ -170,6 +193,7 @@ impl Editor {
             }
             self.lines = state.lines;
             self.cursor = state.cursor;
+            self.anchor = state.anchor;
             self.clamp();
             self.message = if redo { "Redo" } else { "Undo" }.into();
         }
@@ -188,6 +212,8 @@ impl Editor {
 
     pub fn escape(&mut self) {
         self.horizontal_scroll_hold = false;
+        self.search_task = None;
+        self.char_find_hints.clear();
         if matches!(self.mode, Mode::ShellOutput | Mode::BufferList) {
             self.output_view = None;
         }
@@ -206,6 +232,8 @@ impl Editor {
 
     pub fn move_by(&mut self, dx: isize, dy: isize, n: usize) {
         self.horizontal_scroll_hold = false;
+        self.search_task = None;
+        self.char_find_hints.clear();
         if dy != 0 {
             let col = *self.preferred_col.get_or_insert(self.cursor.col);
             self.cursor.row = self
@@ -235,11 +263,20 @@ impl Editor {
             .left
             .saturating_add_signed(direction * amount)
             .min(max_left);
+        if self.cursor.col < self.left || self.cursor.col >= self.left + cols {
+            self.cursor.col = self.left;
+            self.preferred_col = None;
+            self.clamp();
+        }
         self.horizontal_scroll_hold = true;
     }
 
     pub fn follow_cursor_horizontally(&mut self) {
         self.horizontal_scroll_hold = false;
+    }
+
+    pub fn cancel_search(&mut self) {
+        self.search_task = None;
     }
 
     pub fn selection(&self) -> (Pos, Pos) {

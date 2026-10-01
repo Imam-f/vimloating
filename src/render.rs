@@ -91,6 +91,65 @@ pub fn text_grid(font_size: u16) -> (usize, usize, f32, f32) {
     (rows, cols, cell_width, line_height)
 }
 
+fn search_prefix(needle: &[char]) -> Vec<usize> {
+    let mut prefix = vec![0; needle.len()];
+    let mut matched = 0;
+    for index in 1..needle.len() {
+        while matched > 0 && needle[index] != needle[matched] {
+            matched = prefix[matched - 1];
+        }
+        if needle[index] == needle[matched] {
+            matched += 1;
+        }
+        prefix[index] = matched;
+    }
+    prefix
+}
+
+fn search_highlights(
+    line: &[char],
+    needle: &[char],
+    prefix: &[usize],
+    visible_start: usize,
+    visible_end: usize,
+) -> Vec<bool> {
+    let width = visible_end.saturating_sub(visible_start);
+    let mut changes = vec![0isize; width + 1];
+    if needle.is_empty() {
+        return vec![false; width];
+    }
+
+    let mut matched = 0;
+    for (col, ch) in line.iter().enumerate() {
+        while matched > 0 && *ch != needle[matched] {
+            matched = prefix[matched - 1];
+        }
+        if *ch == needle[matched] {
+            matched += 1;
+        }
+        if matched == needle.len() {
+            let start = col + 1 - needle.len();
+            let overlap_start = start.max(visible_start);
+            let overlap_end = (start + needle.len()).min(visible_end);
+            if overlap_start < overlap_end {
+                changes[overlap_start - visible_start] += 1;
+                changes[overlap_end - visible_start] -= 1;
+            }
+            matched = prefix[matched - 1];
+        }
+    }
+
+    let mut active = 0;
+    changes
+        .into_iter()
+        .take(width)
+        .map(|change| {
+            active += change;
+            active > 0
+        })
+        .collect()
+}
+
 pub fn cursor_board_position(editor: &Editor, font_size: u16, word_wrap: bool) -> Vec2 {
     let (_, cols, cell_width, line_height) = text_grid(font_size);
     let display_rows = editor.display_rows(cols, word_wrap);
@@ -139,7 +198,13 @@ pub fn draw_buffer(
     let (rows, cols, cell_width, line_height) = text_grid(font_size);
     let baseline = line_height * 0.78;
     let display_rows = editor.display_rows(cols, word_wrap);
-    let search: Vec<char> = editor.search.chars().collect();
+    let search_text = if editor.mode == Mode::Search {
+        &editor.prompt
+    } else {
+        &editor.search
+    };
+    let search: Vec<char> = search_text.chars().collect();
+    let search_prefix = search_prefix(&search);
     for visible in 0..rows {
         let display_index = editor.top + visible;
         let y = TEXT_Y + visible as f32 * line_height;
@@ -150,6 +215,8 @@ pub fn draw_buffer(
         let line = &editor.lines[row];
         let visible_start = segment_start + if word_wrap { 0 } else { editor.left };
         let visible_end = (visible_start + cols).min(line.len());
+        let highlighted_cells =
+            search_highlights(line, &search, &search_prefix, visible_start, visible_end);
         let cursor_segment = if word_wrap {
             editor.cursor.col / cols * cols
         } else {
@@ -214,16 +281,13 @@ pub fn draw_buffer(
                 continue;
             }
             let x = TEXT_X + (col - visible_start) as f32 * cell_width;
-            if !search.is_empty() {
-                let starts = col.saturating_sub(search.len() - 1)..=col;
-                if starts.clone().any(|start| {
-                    start + search.len() <= line.len()
-                        && line[start..start + search.len()] == search
-                }) {
-                    ui_rectangle(x, y, cell_width, line_height - 1.0, palette.search, scale);
-                }
+            if highlighted_cells[col - visible_start] {
+                ui_rectangle(x, y, cell_width, line_height - 1.0, palette.search, scale);
             }
-            if editor.char_find_highlight == Some(Pos { row, col }) {
+            let position = Pos { row, col };
+            let is_find_hint = editor.char_find_hints.binary_search(&position).is_ok();
+            let is_find_target = editor.char_find_highlight == Some(position);
+            if is_find_hint || is_find_target {
                 ui_rectangle(x, y, cell_width, line_height - 1.0, palette.search, scale);
             }
             if editor.mode == Mode::Visual && !editor.visual_linewise {
@@ -272,6 +336,17 @@ pub fn draw_buffer(
                     scale,
                 );
             }
+            if is_find_hint || is_find_target {
+                ui_line(
+                    x,
+                    y + line_height - 1.0,
+                    x + cell_width,
+                    y + line_height - 1.0,
+                    1.5,
+                    palette.accent,
+                    scale,
+                );
+            }
         }
     }
 
@@ -283,12 +358,7 @@ pub fn draw_buffer(
     if let Some(cursor_row) = display_rows
         .iter()
         .position(|&(row, segment)| row == editor.cursor.row && segment == cursor_segment)
-        .filter(|&index| {
-            index >= editor.top
-                && index < editor.top + rows
-                && (word_wrap
-                    || (editor.cursor.col >= editor.left && editor.cursor.col < editor.left + cols))
-        })
+        .filter(|&index| index >= editor.top && index < editor.top + rows)
     {
         let visible_start = cursor_segment + if word_wrap { 0 } else { editor.left };
         let x = TEXT_X + editor.cursor.col.saturating_sub(visible_start) as f32 * cell_width;
@@ -419,6 +489,8 @@ pub fn draw_buffer(
             "{}{}|",
             if editor.mode == Mode::Command {
                 ':'
+            } else if editor.search_prompt_backwards {
+                '?'
             } else {
                 '/'
             },
@@ -587,4 +659,21 @@ pub fn draw_overlay(help: bool, flat_only: bool, font: Option<&Font>, theme: The
         palette.muted,
         font,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{search_highlights, search_prefix};
+
+    #[test]
+    fn search_highlighting_covers_matches_overlapping_the_visible_columns() {
+        let line: Vec<_> = "banana".chars().collect();
+        let needle: Vec<_> = "ana".chars().collect();
+        let prefix = search_prefix(&needle);
+
+        assert_eq!(
+            search_highlights(&line, &needle, &prefix, 2, 5),
+            vec![true, true, true]
+        );
+    }
 }

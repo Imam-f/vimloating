@@ -9,11 +9,11 @@ pub const BOARD_H: f32 = 7.5;
 pub const CELL: f32 = 17.0;
 pub const LINE: f32 = 36.0;
 pub const TEXT_X: f32 = 112.0;
-pub const TEXT_Y: f32 = 70.0;
+pub const TEXT_Y: f32 = 0.0;
 pub const BASE_FONT_SIZE: u16 = 27;
 pub const ZOOM_SENSITIVITY: f32 = 0.004;
 pub const ZOOM_SMOOTHING: f32 = 3.5;
-pub const VERTICAL_MOTION_STEP: f64 = 0.055;
+pub const VERTICAL_MOTION_STEP: f64 = 0.045;
 pub const INSERT_IDLE_TIMEOUT: f64 = 15.0;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Theme {
@@ -182,11 +182,13 @@ fn main() {
 //   Esc            return to normal mode
 //   h j k l        move left, down, up, right
 //   w b e          move by word
+//   > / <          indent / unindent current line or visual selection
+//   Alt+J / K      move line(s) down / up; match previous nonblank indentation
 //   gg / G         first / last line
 //   dd / yy / p    delete / yank / paste a line
 //   u / Ctrl-R     undo / redo
 //   v              select text, then y or d
-//   /text          search; n / N for next / previous
+//   /text, ?text   search forward / backward; n / N repeat / reverse
 //   :w notes.rs    save this buffer
 //   :e notes.rs    open a UTF-8 file
 //   :Explore       browse files; Enter opens, - goes to the parent

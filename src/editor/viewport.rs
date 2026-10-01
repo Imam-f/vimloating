@@ -102,30 +102,27 @@ impl Editor {
     }
 
     pub(super) fn paragraph(&mut self, forward: bool, n: usize) {
-        let starts: Vec<_> = self
+        let empty_lines: Vec<_> = self
             .lines
             .iter()
             .enumerate()
-            .filter(|(row, line)| {
-                !line.iter().all(|ch| ch.is_whitespace())
-                    && (*row == 0 || self.lines[*row - 1].iter().all(|ch| ch.is_whitespace()))
-            })
+            .filter(|(_, line)| line.iter().all(|ch| ch.is_whitespace()))
             .map(|(row, _)| row)
             .collect();
         let mut row = self.cursor.row;
         for _ in 0..n {
             row = if forward {
-                starts
+                empty_lines
                     .iter()
                     .copied()
-                    .find(|&start| start > row)
+                    .find(|&empty| empty > row)
                     .unwrap_or(self.lines.len() - 1)
             } else {
-                starts
+                empty_lines
                     .iter()
                     .copied()
                     .rev()
-                    .find(|&start| start < row)
+                    .find(|&empty| empty < row)
                     .unwrap_or(0)
             };
         }
@@ -276,7 +273,50 @@ impl Editor {
         self.top = row_index.saturating_sub(rows / 2).min(max_top);
     }
 
+    pub fn move_by_display_rows(
+        &mut self,
+        direction: isize,
+        amount: usize,
+        rows: usize,
+        cols: usize,
+        wrap: bool,
+    ) {
+        let display_rows = self.display_rows(cols, wrap);
+        let cols = cols.max(1);
+        let current_segment = if wrap {
+            self.cursor.col / cols * cols
+        } else {
+            0
+        };
+        let current_index = display_rows
+            .iter()
+            .position(|&(row, start)| row == self.cursor.row && start == current_segment)
+            .unwrap_or(0);
+        let target_index = if direction < 0 {
+            current_index.saturating_sub(amount)
+        } else {
+            current_index
+                .saturating_add(amount)
+                .min(display_rows.len().saturating_sub(1))
+        };
+        let (row, start) = display_rows[target_index];
+        let column_offset = self.cursor.col.saturating_sub(current_segment);
+        self.cursor = Pos {
+            row,
+            col: start
+                .saturating_add(column_offset)
+                .min(self.lines[row].len()),
+        };
+        self.preferred_col = None;
+        self.search_task = None;
+        self.char_find_hints.clear();
+        self.clamp();
+        self.center_cursor(rows, cols, wrap);
+    }
+
     pub fn move_to_screen_line(&mut self, offset: usize, cols: usize, wrap: bool) {
+        self.search_task = None;
+        self.char_find_hints.clear();
         let display_rows = self.display_rows(cols, wrap);
         let index = self.top.saturating_add(offset).min(display_rows.len() - 1);
         let (row, start) = display_rows[index];
@@ -300,6 +340,8 @@ impl Editor {
         cols: usize,
         wrap: bool,
     ) {
+        self.search_task = None;
+        self.char_find_hints.clear();
         let display_rows = self.display_rows(cols, wrap);
         let max_top = display_rows.len().saturating_sub(1);
         self.top = self.top.min(max_top);

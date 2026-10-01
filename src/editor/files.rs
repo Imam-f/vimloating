@@ -1,4 +1,4 @@
-use super::{BufferAction, Editor, Mode, Pos};
+use super::{BufferAction, Editor, Mode, Pos, SearchTask};
 use crate::config::Theme;
 use std::{
     fs,
@@ -6,6 +6,128 @@ use std::{
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
+
+enum SearchStep {
+    Continue,
+    Found(Pos),
+    Done,
+}
+
+const SEARCH_STEPS_PER_FRAME: usize = 4096;
+
+impl SearchTask {
+    fn finish(&self) -> SearchStep {
+        self.last_match.map_or(SearchStep::Done, SearchStep::Found)
+    }
+
+    fn wrap_or_finish(&mut self, line_count: usize) -> SearchStep {
+        if self.wrapped {
+            return self.finish();
+        }
+        self.wrapped = true;
+        self.candidate = if self.backwards {
+            Pos {
+                row: line_count - 1,
+                col: usize::MAX,
+            }
+        } else {
+            Pos::default()
+        };
+        self.compare_offset = None;
+        self.advance_candidate = false;
+        SearchStep::Continue
+    }
+
+    fn skip_row(&mut self, line_count: usize) -> SearchStep {
+        if self.backwards {
+            if self.candidate.row == 0 {
+                return self.wrap_or_finish(line_count);
+            }
+            self.candidate.row -= 1;
+            self.candidate.col = usize::MAX;
+        } else {
+            self.candidate.row += 1;
+            self.candidate.col = 0;
+        }
+        SearchStep::Continue
+    }
+
+    fn step(&mut self, lines: &[Vec<char>]) -> SearchStep {
+        if let Some(offset) = self.compare_offset {
+            if lines[self.candidate.row][self.candidate.col + offset] == self.needle[offset] {
+                if offset + 1 == self.needle.len() {
+                    let found = self.candidate;
+                    self.last_match = Some(found);
+                    if self.remaining > 1 {
+                        self.remaining -= 1;
+                        self.origin = found;
+                        self.candidate = found;
+                        self.wrapped = false;
+                        self.compare_offset = None;
+                        self.advance_candidate = true;
+                        return SearchStep::Continue;
+                    }
+                    return SearchStep::Found(found);
+                }
+                self.compare_offset = Some(offset + 1);
+            } else {
+                self.compare_offset = None;
+                self.advance_candidate = true;
+            }
+            return SearchStep::Continue;
+        }
+
+        if self.advance_candidate {
+            self.advance_candidate = false;
+            if self.backwards {
+                if self.candidate.col > 0 {
+                    self.candidate.col -= 1;
+                } else if self.candidate.row > 0 {
+                    self.candidate.row -= 1;
+                    self.candidate.col = usize::MAX;
+                } else {
+                    return self.wrap_or_finish(lines.len());
+                }
+            } else {
+                self.candidate.col = self.candidate.col.saturating_add(1);
+            }
+        }
+
+        if self.candidate.row >= lines.len() {
+            return self.wrap_or_finish(lines.len());
+        }
+        if self.wrapped
+            && ((!self.backwards && self.candidate.row > self.origin.row)
+                || (self.backwards && self.candidate.row < self.origin.row))
+        {
+            return self.finish();
+        }
+
+        let Some(max_start) = lines[self.candidate.row]
+            .len()
+            .checked_sub(self.needle.len())
+        else {
+            return self.skip_row(lines.len());
+        };
+        if self.backwards {
+            self.candidate.col = self.candidate.col.min(max_start);
+        } else if self.candidate.col > max_start {
+            return self.skip_row(lines.len());
+        }
+
+        if self.wrapped && self.candidate.row == self.origin.row {
+            let boundary = self.origin.col.min(max_start);
+            if (!self.backwards && self.candidate.col > boundary)
+                || (self.backwards && self.candidate.col < boundary)
+            {
+                return self.finish();
+            }
+        }
+
+        self.compare_offset = Some(0);
+        SearchStep::Continue
+    }
+}
 
 fn containing_directory(path: &Path) -> PathBuf {
     if path.is_dir() {
@@ -89,46 +211,77 @@ impl Editor {
     }
 
     pub fn find(&mut self, backwards: bool) {
+        self.find_count(backwards, 1);
+    }
+
+    pub(super) fn find_count(&mut self, backwards: bool, count: usize) {
+        self.start_find(backwards, count, true);
+    }
+
+    pub(super) fn find_repeat(&mut self, backwards: bool, count: usize) {
+        self.start_find(backwards, count, false);
+    }
+
+    fn start_find(&mut self, backwards: bool, count: usize, remember_direction: bool) {
         self.horizontal_scroll_hold = false;
+        if remember_direction {
+            self.search_backwards = backwards;
+        }
+        self.search_task = None;
         let needle: Vec<char> = self.search.chars().collect();
         if needle.is_empty() {
             return;
         }
-        let mut hits = Vec::new();
-        for (row, line) in self.lines.iter().enumerate() {
-            if line.len() >= needle.len() {
-                for col in 0..=line.len() - needle.len() {
-                    if line[col..col + needle.len()] == needle {
-                        hits.push(Pos { row, col });
-                    }
+        self.search_task = Some(SearchTask {
+            needle,
+            backwards,
+            origin: self.cursor,
+            candidate: self.cursor,
+            wrapped: false,
+            compare_offset: None,
+            advance_candidate: true,
+            remaining: count.max(1),
+            last_match: None,
+        });
+    }
+
+    pub fn advance_search(&mut self) {
+        for _ in 0..SEARCH_STEPS_PER_FRAME {
+            let Some(mut task) = self.search_task.take() else {
+                return;
+            };
+            match task.step(&self.lines) {
+                SearchStep::Continue => self.search_task = Some(task),
+                SearchStep::Found(position) => {
+                    self.cursor = position;
+                    self.preferred_col = None;
+                    self.char_find_highlight = None;
+                    self.message = if task.backwards {
+                        "Backward search match".into()
+                    } else {
+                        "Forward search match".into()
+                    };
+                    return;
+                }
+                SearchStep::Done => {
+                    self.message = "Pattern not found".into();
+                    return;
                 }
             }
-        }
-        let hit = if backwards {
-            hits.iter()
-                .rev()
-                .find(|p| **p < self.cursor)
-                .or_else(|| hits.last())
-        } else {
-            hits.iter()
-                .find(|p| **p > self.cursor)
-                .or_else(|| hits.first())
-        };
-        if let Some(p) = hit {
-            self.cursor = *p;
-            self.message = format!("/{} · {} matches", self.search, hits.len());
-        } else {
-            self.message = format!("Pattern not found: {}", self.search);
         }
     }
 
     pub fn submit_prompt(&mut self) {
         let prompt = self.prompt.clone();
         let searching = self.mode == Mode::Search;
+        let search_backwards = self.search_prompt_backwards;
         self.escape();
         if searching {
-            self.search = prompt;
-            self.find(false);
+            if !prompt.is_empty() {
+                self.search = prompt;
+            }
+            self.search_backwards = search_backwards;
+            self.find(search_backwards);
         } else {
             self.command(&prompt);
         }
@@ -295,7 +448,7 @@ impl Editor {
                 }
             }
             "help" => {
-                self.message = "hjkl · w/b/e · f/F/t/T + char · ; repeat · gg/G · zz · i/a/o · /search · Tab completion · :.!cmd · :bn/:bp".into()
+                self.message = "hjkl · w/b/e · f/F/t/T + char (word hint) · ; repeat · gg/G · zz · i/a/o · / ? search · n/N repeat · :.!cmd · :bn/:bp".into()
             }
             "noh" | "nohlsearch" => self.search.clear(),
             _ => {

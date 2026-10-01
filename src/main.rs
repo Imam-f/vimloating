@@ -101,6 +101,7 @@ async fn main() {
             &mut vertical_motion,
             &mut scroll_repeat,
         );
+        editor.advance_search();
         advance_vertical_motion(editor, &mut vertical_motion);
         if editor.mode == Mode::Insert {
             let now = get_time();
@@ -155,6 +156,7 @@ async fn main() {
             let display_rows = editor.display_rows(visible_cols, word_wrap);
             if let Some(&(row, segment_start)) = display_rows.get(display_index) {
                 let horizontal_offset = if word_wrap { 0 } else { editor.left };
+                editor.cancel_search();
                 editor.cursor = Pos {
                     row,
                     col: segment_start
@@ -162,6 +164,9 @@ async fn main() {
                         + ((point.x - TEXT_X) / cell_width) as usize,
                 };
                 editor.clamp();
+                editor.char_find_highlight =
+                    (editor.cursor.col < editor.lines[row].len()).then_some(editor.cursor);
+                editor.char_find_hints.clear();
             }
         }
         editor.reveal_cursor(visible_rows, visible_cols, word_wrap);
