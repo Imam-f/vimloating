@@ -43,7 +43,13 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | --- | --- |
 | `h` `j` `k` `l` / arrow keys | Move left / down / up / right |
 | `w` `b` `e` | Next word / previous word / word end |
+| `f{char}` / `F{char}` | Find next / previous matching character on the line and highlight it |
+| `t{char}` / `T{char}` | Move just before / after the next / previous matching character and highlight it |
+| `;` | Repeat the last character find in the same direction |
+| `{` / `}` | Previous / next paragraph |
+| `(` / `)` | Previous / next sentence |
 | `0` `^` `$` | Line start / first nonblank / line end |
+| `H` / `M` / `L` | First nonblank on the top / middle / bottom visible line |
 | `gg` / `G` | First / last line |
 | `12G` or `:12` | Go to line 12 |
 | `i` / `a` | Insert before / after the cursor |
@@ -53,14 +59,16 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `dd` / `yy` | Delete / yank a line |
 | `p` / `P` | Paste after / before from the internal register |
 | `v` / `V`, then movement | Select characters / whole lines |
+| `o` in Visual mode | Switch the active end of the selection |
 | `d` / `x` / `y` in Visual mode | Delete / delete / yank the selection; line selections paste as lines |
+| `zz` | Center the cursor line in the view |
 | `u` / `Ctrl+R` | Undo / redo |
 | `/pattern`, `Enter` | Find text, with highlights and wraparound |
 | `n` / `N` | Next / previous match |
 | `Ctrl+6` | Toggle to the last active buffer |
 | `Ctrl+E` / `Ctrl+Y` | Scroll down / up one display line |
-| `Ctrl+D` / `Ctrl+U` | Scroll down / up half a page |
-| `Ctrl+F` / `Ctrl+B` | Scroll down / up one page |
+| `Ctrl+D` / `Ctrl+U` | Scroll down / up half a page, then center the view |
+| `Ctrl+F` / `Ctrl+B` | Scroll down / up one page, then center the view |
 | `Ctrl+J` / `Ctrl+K` | Animate through five lines down / up |
 | `PageDown` / `PageUp` | Move a page down / up |
 | `Ctrl+S` | Save to the current filename |

@@ -12,12 +12,13 @@ pub struct View {
     center: Vec3,
     desired_center: Vec3,
     pub last_mouse: Vec2,
+    pub two_d_only: bool,
     pub flat_only: bool,
     right_pan: bool,
 }
 
 impl View {
-    pub fn new() -> Self {
+    pub fn new(two_d_only: bool) -> Self {
         Self {
             distance: 12.8,
             desired_distance: 12.8,
@@ -28,12 +29,17 @@ impl View {
             center: Vec3::ZERO,
             desired_center: Vec3::ZERO,
             last_mouse: vec2(mouse_position().0, mouse_position().1),
+            two_d_only,
             flat_only: true,
             right_pan: false,
         }
     }
 
     pub fn update(&mut self) {
+        if self.two_d_only {
+            self.last_mouse = vec2(mouse_position().0, mouse_position().1);
+            return;
+        }
         if is_mouse_button_pressed(MouseButton::Right) {
             self.right_pan = self.pick().is_none();
         } else if !is_mouse_button_down(MouseButton::Right) {
@@ -101,7 +107,36 @@ impl View {
         }
     }
 
+    pub fn follow_cursor(&mut self, cursor: Vec2) {
+        if self.two_d_only {
+            return;
+        }
+        let projected = self
+            .camera()
+            .matrix()
+            .project_point3(vec3(cursor.x, cursor.y, 0.0));
+        let screen = vec2(
+            (projected.x + 1.0) * 0.5 * screen_width(),
+            (1.0 - projected.y) * 0.5 * screen_height(),
+        );
+        let margin = 24.0;
+        if screen.x < margin
+            || screen.x > screen_width() - margin
+            || screen.y < margin
+            || screen.y > screen_height() - margin
+        {
+            self.desired_center = vec3(cursor.x, cursor.y, 0.0);
+        }
+    }
+
     pub fn pick(&self) -> Option<Vec2> {
+        if self.two_d_only {
+            let (mouse_x, mouse_y) = mouse_position();
+            return Some(vec2(
+                mouse_x / screen_width() * TEX_W as f32,
+                mouse_y / screen_height() * TEX_H as f32,
+            ));
+        }
         let inverse = self.camera().matrix().inverse();
         let (mx, my) = mouse_position();
         let ndc = vec2(

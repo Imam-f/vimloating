@@ -7,7 +7,7 @@ mod view;
 use config::window_conf;
 use config::*;
 use editor::{Editor, Mode, Pos, buffers::BufferList};
-use input::{VerticalMotion, advance_vertical_motion, handle_keyboard};
+use input::{ScrollRepeat, VerticalMotion, advance_vertical_motion, handle_keyboard};
 use macroquad::prelude::*;
 use std::path::PathBuf;
 use view::View;
@@ -37,7 +37,7 @@ async fn main() {
         }
     }
 
-    let editor = if let Some(path) = path {
+    let mut editor = if let Some(path) = path {
         match Editor::open_path(path.clone()) {
             Ok(editor) => editor,
             Err(_) if !path.exists() => Editor::new("", Some(path)),
@@ -49,19 +49,22 @@ async fn main() {
     } else {
         Editor::new(WELCOME, None)
     };
+    let user_config = load_user_config();
+    editor.theme = user_config.theme.unwrap_or_default();
     let mut buffers = BufferList::new(editor);
 
     let font = render::system_font();
     let (target_width, target_height) = render::editor_target_dimensions();
     let mut target = render::create_editor_target(target_width, target_height);
     let mut board = render::board_mesh(target.texture.clone());
-    let mut view = View::new();
+    let mut view = View::new(user_config.two_d_only.unwrap_or(false));
     let mut help = false;
     let mut show_floor = false;
     let mut word_wrap = true;
     let mut font_size = BASE_FONT_SIZE;
     let mut last_normal_enter = None;
     let mut vertical_motion: Option<VerticalMotion> = None;
+    let mut scroll_repeat: Option<ScrollRepeat> = None;
     let mut last_insert_activity = get_time();
     let mut frame = 0;
     prevent_quit();
@@ -89,10 +92,15 @@ async fn main() {
         view.update();
 
         let cursor_before_keys = editor.cursor;
-        let word_wrap_before_keys = word_wrap;
         let mode_before_keys = editor.mode;
         let directory_before_keys = editor.is_directory_browser();
-        handle_keyboard(editor, &mut font_size, &mut word_wrap, &mut vertical_motion);
+        handle_keyboard(
+            editor,
+            &mut font_size,
+            &mut word_wrap,
+            &mut vertical_motion,
+            &mut scroll_repeat,
+        );
         advance_vertical_motion(editor, &mut vertical_motion);
         if editor.mode == Mode::Insert {
             let now = get_time();
@@ -156,15 +164,9 @@ async fn main() {
                 editor.clamp();
             }
         }
-        if word_wrap != word_wrap_before_keys {
-            editor.reveal_cursor(visible_rows, visible_cols, word_wrap);
-        } else {
-            editor.reveal_cursor_after_motion(
-                cursor_before_keys,
-                visible_rows,
-                visible_cols,
-                word_wrap,
-            );
+        editor.reveal_cursor(visible_rows, visible_cols, word_wrap);
+        if editor.cursor != cursor_before_keys {
+            view.follow_cursor(render::cursor_board_position(editor, font_size, word_wrap));
         }
         buffers.protect_quit();
         let editor = buffers.active();
@@ -181,8 +183,12 @@ async fn main() {
             word_wrap,
             render_scale,
         );
-        render::draw_world(&view, &board, show_floor, editor.theme);
-        render::draw_overlay(help, view.flat_only, font.as_ref(), editor.theme);
+        if view.two_d_only {
+            render::draw_2d_only(&target.texture, editor.theme);
+        } else {
+            render::draw_world(&view, &board, show_floor, editor.theme);
+            render::draw_overlay(help, view.flat_only, font.as_ref(), editor.theme);
+        }
         frame += 1;
         if frame == 10
             && let Some(path) = &screenshot

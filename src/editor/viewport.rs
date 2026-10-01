@@ -101,6 +101,110 @@ impl Editor {
         self.clamp();
     }
 
+    pub(super) fn paragraph(&mut self, forward: bool, n: usize) {
+        let starts: Vec<_> = self
+            .lines
+            .iter()
+            .enumerate()
+            .filter(|(row, line)| {
+                !line.iter().all(|ch| ch.is_whitespace())
+                    && (*row == 0 || self.lines[*row - 1].iter().all(|ch| ch.is_whitespace()))
+            })
+            .map(|(row, _)| row)
+            .collect();
+        let mut row = self.cursor.row;
+        for _ in 0..n {
+            row = if forward {
+                starts
+                    .iter()
+                    .copied()
+                    .find(|&start| start > row)
+                    .unwrap_or(self.lines.len() - 1)
+            } else {
+                starts
+                    .iter()
+                    .copied()
+                    .rev()
+                    .find(|&start| start < row)
+                    .unwrap_or(0)
+            };
+        }
+        self.cursor.row = row;
+        self.cursor.col = self.lines[row]
+            .iter()
+            .position(|ch| !ch.is_whitespace())
+            .unwrap_or(0);
+        self.preferred_col = None;
+        self.clamp();
+    }
+
+    pub(super) fn sentence(&mut self, forward: bool, n: usize) {
+        let mut chars = Vec::new();
+        for (row, line) in self.lines.iter().enumerate() {
+            chars.extend(
+                line.iter()
+                    .enumerate()
+                    .map(|(col, &ch)| (Pos { row, col }, ch)),
+            );
+            if row + 1 < self.lines.len() {
+                chars.push((
+                    Pos {
+                        row,
+                        col: line.len(),
+                    },
+                    '\n',
+                ));
+            }
+        }
+        let mut starts = Vec::new();
+        if let Some((pos, _)) = chars.iter().find(|(_, ch)| !ch.is_whitespace()) {
+            starts.push(*pos);
+        }
+        for index in 0..chars.len() {
+            if !matches!(chars[index].1, '.' | '!' | '?') {
+                continue;
+            }
+            let mut next = index + 1;
+            while next < chars.len() && matches!(chars[next].1, '\'' | '"' | ')' | ']' | '}') {
+                next += 1;
+            }
+            if next == chars.len() || chars[next].1.is_whitespace() {
+                while next < chars.len() && chars[next].1.is_whitespace() {
+                    next += 1;
+                }
+                if let Some(&(pos, ch)) = chars.get(next)
+                    && !ch.is_whitespace()
+                    && starts.last() != Some(&pos)
+                {
+                    starts.push(pos);
+                }
+            }
+        }
+
+        let mut target = self.cursor;
+        for _ in 0..n {
+            target = if forward {
+                starts
+                    .iter()
+                    .copied()
+                    .find(|&start| start > target)
+                    .or_else(|| chars.last().map(|(pos, _)| *pos))
+                    .unwrap_or(target)
+            } else {
+                starts
+                    .iter()
+                    .copied()
+                    .rev()
+                    .find(|&start| start < target)
+                    .or_else(|| starts.first().copied())
+                    .unwrap_or(target)
+            };
+        }
+        self.cursor = target;
+        self.preferred_col = None;
+        self.clamp();
+    }
+
     pub fn display_rows(&self, cols: usize, wrap: bool) -> Vec<(usize, usize)> {
         let cols = cols.max(1);
         let mut rows = Vec::new();
@@ -155,6 +259,38 @@ impl Editor {
         }
     }
 
+    pub fn center_cursor(&mut self, rows: usize, cols: usize, wrap: bool) {
+        let rows = rows.max(1);
+        let display_rows = self.display_rows(cols, wrap);
+        let cols = cols.max(1);
+        let segment = if wrap {
+            self.cursor.col / cols * cols
+        } else {
+            0
+        };
+        let row_index = display_rows
+            .iter()
+            .position(|&(row, start)| row == self.cursor.row && start == segment)
+            .unwrap_or(0);
+        let max_top = display_rows.len().saturating_sub(rows);
+        self.top = row_index.saturating_sub(rows / 2).min(max_top);
+    }
+
+    pub fn move_to_screen_line(&mut self, offset: usize, cols: usize, wrap: bool) {
+        let display_rows = self.display_rows(cols, wrap);
+        let index = self.top.saturating_add(offset).min(display_rows.len() - 1);
+        let (row, start) = display_rows[index];
+        let end = (start + cols.max(1)).min(self.lines[row].len());
+        let col = (start..end)
+            .find(|&col| !self.lines[row][col].is_whitespace())
+            .unwrap_or(start);
+
+        self.cursor = Pos { row, col };
+        self.preferred_col = None;
+        self.horizontal_scroll_hold = false;
+        self.clamp();
+    }
+
     #[allow(dead_code)]
     pub fn scroll_vertical(
         &mut self,
@@ -206,18 +342,6 @@ impl Editor {
             };
             self.preferred_col = None;
             self.clamp();
-        }
-    }
-
-    pub fn reveal_cursor_after_motion(
-        &mut self,
-        previous_cursor: Pos,
-        rows: usize,
-        cols: usize,
-        wrap: bool,
-    ) {
-        if self.cursor != previous_cursor {
-            self.reveal_cursor(rows, cols, wrap);
         }
     }
 }

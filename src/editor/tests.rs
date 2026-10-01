@@ -62,6 +62,97 @@ fn visual_multiline_delete_preserves_boundary_text() {
 }
 
 #[test]
+fn visual_o_swaps_the_active_selection_endpoint() {
+    let mut e = Editor::new("one\ntwo\nthree", None);
+    e.normal_key('v');
+    e.move_by(0, 2, 1);
+    assert_eq!(e.cursor, Pos { row: 2, col: 0 });
+
+    e.normal_key('o');
+
+    assert_eq!(e.mode, Mode::Visual);
+    assert_eq!(e.cursor, Pos { row: 0, col: 0 });
+    assert_eq!(e.anchor, Pos { row: 2, col: 0 });
+}
+
+#[test]
+fn center_cursor_centers_the_current_display_line_and_clamps_at_the_end() {
+    let mut e = Editor::new(
+        &(0..20)
+            .map(|row| row.to_string())
+            .collect::<Vec<_>>()
+            .join("\n"),
+        None,
+    );
+    e.cursor.row = 10;
+    e.center_cursor(5, 20, false);
+    assert_eq!(e.top, 8);
+
+    e.cursor.row = 19;
+    e.center_cursor(5, 20, false);
+    assert_eq!(e.top, 15);
+}
+
+#[test]
+fn screen_line_motions_select_first_nonblank_visible_lines() {
+    let mut e = Editor::new("  top\n  middle\n  bottom\n  last", None);
+    e.top = 1;
+
+    e.move_to_screen_line(0, 20, false);
+    assert_eq!(e.cursor, Pos { row: 1, col: 2 });
+
+    e.move_to_screen_line(1, 20, false);
+    assert_eq!(e.cursor, Pos { row: 2, col: 2 });
+
+    e.move_to_screen_line(2, 20, false);
+    assert_eq!(e.cursor, Pos { row: 3, col: 2 });
+}
+
+#[test]
+fn character_find_motions_repeat_and_highlight_the_matched_target() {
+    let mut e = Editor::new("a x a y a", None);
+    e.normal_key('f');
+    e.normal_key('a');
+    assert_eq!(e.cursor, Pos { row: 0, col: 4 });
+    assert_eq!(e.char_find_highlight, Some(Pos { row: 0, col: 4 }));
+
+    e.normal_key(';');
+    assert_eq!(e.cursor, Pos { row: 0, col: 8 });
+    assert_eq!(e.char_find_highlight, Some(Pos { row: 0, col: 8 }));
+
+    e.normal_key('F');
+    e.normal_key('a');
+    assert_eq!(e.cursor, Pos { row: 0, col: 4 });
+
+    e.normal_key('t');
+    e.normal_key('a');
+    assert_eq!(e.cursor, Pos { row: 0, col: 7 });
+    assert_eq!(e.char_find_highlight, Some(Pos { row: 0, col: 8 }));
+
+    e.normal_key('T');
+    e.normal_key('a');
+    assert_eq!(e.cursor, Pos { row: 0, col: 5 });
+    assert_eq!(e.char_find_highlight, Some(Pos { row: 0, col: 4 }));
+}
+
+#[test]
+fn counted_character_find_uses_the_requested_occurrence() {
+    let mut e = Editor::new("a x a y a", None);
+    for key in "2fa".chars() {
+        e.normal_key(key);
+    }
+    assert_eq!(e.cursor, Pos { row: 0, col: 8 });
+    assert_eq!(e.char_find_highlight, Some(Pos { row: 0, col: 8 }));
+
+    let mut e = Editor::new("a x a y a", None);
+    for key in "2ta".chars() {
+        e.normal_key(key);
+    }
+    assert_eq!(e.cursor, Pos { row: 0, col: 7 });
+    assert_eq!(e.char_find_highlight, Some(Pos { row: 0, col: 8 }));
+}
+
+#[test]
 fn visual_line_selection_yanks_and_pastes_complete_lines() {
     let mut e = Editor::new("one\ntwo\nthree\nfour", None);
     e.normal_key('V');
@@ -108,6 +199,38 @@ fn search_wraps_and_uses_character_columns() {
     assert_eq!(e.cursor, Pos { row: 1, col: 0 });
     e.find(false);
     assert_eq!(e.cursor, Pos { row: 0, col: 1 });
+}
+
+#[test]
+fn brace_motions_move_between_paragraph_starts_and_support_counts() {
+    let mut e = Editor::new("alpha\ncontinued\n\nbeta\ncontinued\n\nomega", None);
+    e.cursor.row = 1;
+    for key in "2}".chars() {
+        e.normal_key(key);
+    }
+    assert_eq!(e.cursor, Pos { row: 6, col: 0 });
+
+    e.normal_key('{');
+    assert_eq!(e.cursor, Pos { row: 3, col: 0 });
+    e.normal_key('{');
+    assert_eq!(e.cursor, Pos { row: 0, col: 0 });
+}
+
+#[test]
+fn parenthesis_motions_move_between_sentences_and_support_counts() {
+    let mut e = Editor::new("First sentence. Second sentence!\nThird one? End.", None);
+    e.normal_key(')');
+    assert_eq!(e.cursor, Pos { row: 0, col: 16 });
+
+    for key in "2)".chars() {
+        e.normal_key(key);
+    }
+    assert_eq!(e.cursor, Pos { row: 1, col: 11 });
+
+    e.normal_key('(');
+    assert_eq!(e.cursor, Pos { row: 1, col: 0 });
+    e.normal_key('(');
+    assert_eq!(e.cursor, Pos { row: 0, col: 16 });
 }
 
 #[test]
@@ -201,19 +324,6 @@ fn vertical_scroll_can_overscroll_until_only_the_last_line_is_visible() {
     e.scroll_vertical(-1, 1, 5, 20, false);
     assert_eq!(e.top, 8);
     assert_eq!(e.cursor.row, 9);
-}
-
-#[test]
-fn zoom_does_not_scroll_until_the_cursor_moves() {
-    let mut e = Editor::new("0\n1\n2\n3\n4\n5\n6\n7\n8\n9", None);
-    e.cursor.row = 8;
-    e.reveal_cursor_after_motion(e.cursor, 5, 20, true);
-    assert_eq!(e.top, 0);
-
-    let previous_cursor = e.cursor;
-    e.cursor.row = 9;
-    e.reveal_cursor_after_motion(previous_cursor, 5, 20, true);
-    assert_eq!(e.top, 5);
 }
 
 #[test]

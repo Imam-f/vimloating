@@ -7,19 +7,32 @@ pub struct VerticalMotion {
     direction: isize,
     remaining: usize,
     next_step: f64,
+    repeat_key: KeyCode,
 }
+
+pub struct ScrollRepeat {
+    key: KeyCode,
+    next_repeat: f64,
+}
+
+const KEY_REPEAT_DELAY: f64 = 0.35;
+const KEY_REPEAT_INTERVAL: f64 = 0.06;
 
 pub fn handle_keyboard(
     editor: &mut Editor,
     font_size: &mut u16,
     word_wrap: &mut bool,
     vertical_motion: &mut Option<VerticalMotion>,
+    scroll_repeat: &mut Option<ScrollRepeat>,
 ) {
     let mut chars = Vec::new();
     while let Some(ch) = get_char_pressed() {
         chars.push(ch);
     }
     let ctrl = is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl);
+    if !ctrl {
+        *scroll_repeat = None;
+    }
     let scroll_left = ctrl && is_key_pressed(KeyCode::H);
     let scroll_right = ctrl && is_key_pressed(KeyCode::L);
     let scroll_up = ctrl
@@ -48,10 +61,16 @@ pub fn handle_keyboard(
             return;
         }
         if is_key_pressed(KeyCode::J) || is_key_pressed(KeyCode::K) {
+            let repeat_key = if is_key_pressed(KeyCode::J) {
+                KeyCode::J
+            } else {
+                KeyCode::K
+            };
             *vertical_motion = Some(VerticalMotion {
-                direction: if is_key_pressed(KeyCode::J) { 1 } else { -1 },
+                direction: if repeat_key == KeyCode::J { 1 } else { -1 },
                 remaining: 5,
                 next_step: get_time(),
+                repeat_key,
             });
             return;
         }
@@ -105,22 +124,65 @@ pub fn handle_keyboard(
         if is_key_pressed(KeyCode::R) && editor.mode == Mode::Normal {
             editor.undo(true);
         }
+        let now = get_time();
+        let held_scroll_key = if is_key_down(KeyCode::E) {
+            Some(KeyCode::E)
+        } else if is_key_down(KeyCode::Y) {
+            Some(KeyCode::Y)
+        } else {
+            None
+        };
+        let repeated_scroll = if let Some(key) = held_scroll_key {
+            let same_key_is_repeating = scroll_repeat
+                .as_ref()
+                .is_some_and(|repeat| repeat.key == key);
+            if is_key_pressed(key) && !same_key_is_repeating {
+                *scroll_repeat = Some(ScrollRepeat {
+                    key,
+                    next_repeat: now + KEY_REPEAT_DELAY,
+                });
+                Some(key)
+            } else if scroll_repeat
+                .as_ref()
+                .is_some_and(|repeat| repeat.key == key && now >= repeat.next_repeat)
+            {
+                *scroll_repeat = Some(ScrollRepeat {
+                    key,
+                    next_repeat: now + KEY_REPEAT_INTERVAL,
+                });
+                Some(key)
+            } else {
+                None
+            }
+        } else {
+            *scroll_repeat = None;
+            None
+        };
+        let scroll_up = scroll_up || repeated_scroll == Some(KeyCode::Y);
+        let scroll_down = scroll_down || repeated_scroll == Some(KeyCode::E);
         let (rows, cols, _, _) = text_grid(*font_size);
         if scroll_up || scroll_down {
-            let (direction, amount) = if is_key_pressed(KeyCode::E) {
-                (1, 1)
-            } else if is_key_pressed(KeyCode::Y) {
-                (-1, 1)
-            } else if is_key_pressed(KeyCode::D) {
-                (1, rows / 2)
-            } else if is_key_pressed(KeyCode::U) {
-                (-1, rows / 2)
-            } else if is_key_pressed(KeyCode::F) {
-                (1, rows)
-            } else {
-                (-1, rows)
-            };
+            let (direction, amount) =
+                if repeated_scroll == Some(KeyCode::E) || is_key_pressed(KeyCode::E) {
+                    (1, 1)
+                } else if repeated_scroll == Some(KeyCode::Y) || is_key_pressed(KeyCode::Y) {
+                    (-1, 1)
+                } else if is_key_pressed(KeyCode::D) {
+                    (1, rows / 2)
+                } else if is_key_pressed(KeyCode::U) {
+                    (-1, rows / 2)
+                } else if is_key_pressed(KeyCode::F) {
+                    (1, rows)
+                } else {
+                    (-1, rows)
+                };
             editor.scroll_vertical(direction, amount.max(1), rows, cols, *word_wrap);
+            if [KeyCode::D, KeyCode::U, KeyCode::F, KeyCode::B]
+                .into_iter()
+                .any(is_key_pressed)
+            {
+                editor.center_cursor(rows, cols, *word_wrap);
+            }
         }
         if scroll_left || scroll_right {
             if *word_wrap {
@@ -180,7 +242,25 @@ pub fn handle_keyboard(
                     editor.prompt.push(ch);
                 }
             }
-            Mode::Normal | Mode::Visual => editor.normal_key(ch),
+            Mode::Normal | Mode::Visual => {
+                if editor.mode == Mode::Normal && matches!(ch, 'H' | 'M' | 'L') {
+                    let (rows, cols, _, _) = text_grid(*font_size);
+                    let offset = match ch {
+                        'H' => 0,
+                        'M' => rows / 2,
+                        'L' => rows - 1,
+                        _ => unreachable!(),
+                    };
+                    editor.move_to_screen_line(offset, cols, *word_wrap);
+                } else if editor.pending == Some('z') && ch == 'z' {
+                    let (rows, cols, _, _) = text_grid(*font_size);
+                    editor.pending = None;
+                    editor.count.clear();
+                    editor.center_cursor(rows, cols, *word_wrap);
+                } else {
+                    editor.normal_key(ch);
+                }
+            }
             Mode::ShellOutput | Mode::BufferList => {}
         }
     }
@@ -235,6 +315,11 @@ pub fn advance_vertical_motion(editor: &mut Editor, vertical_motion: &mut Option
         motion.next_step += VERTICAL_MOTION_STEP;
     }
     if motion.remaining == 0 {
-        *vertical_motion = None;
+        let ctrl = is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl);
+        if ctrl && is_key_down(motion.repeat_key) {
+            motion.remaining = 5;
+        } else {
+            *vertical_motion = None;
+        }
     }
 }

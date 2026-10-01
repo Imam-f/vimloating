@@ -91,6 +91,30 @@ pub fn text_grid(font_size: u16) -> (usize, usize, f32, f32) {
     (rows, cols, cell_width, line_height)
 }
 
+pub fn cursor_board_position(editor: &Editor, font_size: u16, word_wrap: bool) -> Vec2 {
+    let (_, cols, cell_width, line_height) = text_grid(font_size);
+    let display_rows = editor.display_rows(cols, word_wrap);
+    let segment = if word_wrap {
+        editor.cursor.col / cols.max(1) * cols.max(1)
+    } else {
+        0
+    };
+    let display_index = display_rows
+        .iter()
+        .position(|&(row, start)| row == editor.cursor.row && start == segment)
+        .unwrap_or(0);
+    let row_in_view = display_index.saturating_sub(editor.top);
+    let visible_start = segment + if word_wrap { 0 } else { editor.left };
+    let x = TEXT_X
+        + editor.cursor.col.saturating_sub(visible_start) as f32 * cell_width
+        + cell_width * 0.5;
+    let y = TEXT_Y + row_in_view as f32 * line_height + line_height * 0.5;
+    vec2(
+        (x / TEX_W as f32 - 0.5) * BOARD_W,
+        (0.5 - y / TEX_H as f32) * BOARD_H,
+    )
+}
+
 pub fn draw_buffer(
     editor: &Editor,
     target: &RenderTarget,
@@ -198,6 +222,9 @@ pub fn draw_buffer(
                 }) {
                     ui_rectangle(x, y, cell_width, line_height - 1.0, palette.search, scale);
                 }
+            }
+            if editor.char_find_highlight == Some(Pos { row, col }) {
+                ui_rectangle(x, y, cell_width, line_height - 1.0, palette.search, scale);
             }
             if editor.mode == Mode::Visual && !editor.visual_linewise {
                 let (a, b) = editor.selection();
@@ -492,6 +519,21 @@ pub fn draw_world(view: &View, board: &Mesh, show_floor: bool, theme: Theme) {
     }
     draw_mesh(board);
     set_default_camera();
+}
+
+pub fn draw_2d_only(texture: &Texture2D, theme: Theme) {
+    clear_background(theme.palette().background);
+    draw_texture_ex(
+        texture,
+        0.0,
+        0.0,
+        WHITE,
+        DrawTextureParams {
+            dest_size: Some(vec2(screen_width(), screen_height())),
+            flip_y: true,
+            ..Default::default()
+        },
+    );
 }
 
 pub fn draw_overlay(help: bool, flat_only: bool, font: Option<&Font>, theme: Theme) {

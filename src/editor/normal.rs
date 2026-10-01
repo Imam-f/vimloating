@@ -1,6 +1,49 @@
-use super::{BufferAction, Editor, Mode, Pos};
+use super::{BufferAction, CharFind, Editor, Mode, Pos};
 
 impl Editor {
+    fn find_char(&mut self, target: char, direction: isize, till: bool, n: usize) {
+        let row = self.cursor.row;
+        let line = &self.lines[row];
+        let mut search_from = self.cursor.col;
+        let mut last_target = None;
+        for _ in 0..n {
+            let target_col = if direction > 0 {
+                (search_from.saturating_add(1)..line.len()).find(|&col| line[col] == target)
+            } else {
+                (0..search_from).rev().find(|&col| line[col] == target)
+            };
+            let Some(target_col) = target_col else {
+                break;
+            };
+            last_target = Some(target_col);
+            search_from = target_col;
+        }
+
+        if let Some(target_col) = last_target {
+            self.cursor.col = if till {
+                target_col.saturating_add_signed(-direction)
+            } else {
+                target_col
+            };
+            self.char_find_highlight = Some(Pos {
+                row,
+                col: target_col,
+            });
+            self.last_char_find = Some(CharFind {
+                target,
+                direction,
+                till,
+            });
+            self.preferred_col = None;
+        }
+    }
+
+    fn repeat_char_find(&mut self, n: usize) {
+        if let Some(last) = self.last_char_find {
+            self.find_char(last.target, last.direction, last.till, n);
+        }
+    }
+
     fn visual_action(&mut self, delete: bool) {
         let (a, b) = self.selection();
         self.register.clear();
@@ -99,7 +142,8 @@ impl Editor {
 
     pub fn normal_key(&mut self, key: char) {
         self.horizontal_scroll_hold = false;
-        if self.is_directory_browser() {
+        self.char_find_highlight = None;
+        if self.is_directory_browser() && !matches!(self.pending, Some('f' | 'F' | 't' | 'T')) {
             if key == '-' {
                 if let Some(parent) = self.path.as_deref().and_then(std::path::Path::parent) {
                     self.buffer_action = Some(BufferAction::Open {
@@ -118,6 +162,18 @@ impl Editor {
                 self.count.clear();
                 return;
             }
+        }
+        if let Some(motion @ ('f' | 'F' | 't' | 'T')) = self.pending {
+            let n = self.count.parse::<usize>().unwrap_or(1).clamp(1, 10000);
+            self.pending = None;
+            self.count.clear();
+            self.find_char(
+                key,
+                if matches!(motion, 'f' | 't') { 1 } else { -1 },
+                matches!(motion, 't' | 'T'),
+                n,
+            );
+            return;
         }
         if key.is_ascii_digit() && (key != '0' || !self.count.is_empty()) {
             if self.count.len() < 5 {
@@ -149,12 +205,19 @@ impl Editor {
             self.visual_action(key != 'y');
             return;
         }
+        if self.mode == Mode::Visual && key == 'o' {
+            std::mem::swap(&mut self.anchor, &mut self.cursor);
+            self.preferred_col = None;
+            return;
+        }
         match key {
             'h' => self.move_by(-1, 0, n),
             'j' => self.move_by(0, 1, n),
             'k' => self.move_by(0, -1, n),
             'l' => self.move_by(1, 0, n),
             'w' | 'b' | 'e' => self.word(key, n),
+            '{' | '}' => self.paragraph(key == '}', n),
+            '(' | ')' => self.sentence(key == ')', n),
             '0' => {
                 self.cursor.col = 0;
                 self.preferred_col = None;
@@ -177,7 +240,7 @@ impl Editor {
                 };
                 self.clamp();
             }
-            'g' | 'd' | 'y' => {
+            'g' | 'd' | 'y' | 'z' | 'f' | 'F' | 't' | 'T' => {
                 self.pending = Some(key);
                 return;
             }
@@ -244,6 +307,7 @@ impl Editor {
                     self.find(key == 'N');
                 }
             }
+            ';' => self.repeat_char_find(n),
             _ => {}
         }
         self.count.clear();

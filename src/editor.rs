@@ -40,6 +40,13 @@ struct CompletionCycle {
     last: String,
 }
 
+#[derive(Clone, Copy)]
+struct CharFind {
+    target: char,
+    direction: isize,
+    till: bool,
+}
+
 #[derive(Clone)]
 struct Snapshot {
     lines: Vec<Vec<char>>,
@@ -56,6 +63,7 @@ pub struct Editor {
     pub message: String,
     pub prompt: String,
     pub search: String,
+    pub char_find_highlight: Option<Pos>,
     pub output_view: Option<String>,
     pub theme: Theme,
     pub buffer_action: Option<BufferAction>,
@@ -72,6 +80,7 @@ pub struct Editor {
     register: Vec<Vec<char>>,
     linewise: bool,
     preferred_col: Option<usize>,
+    last_char_find: Option<CharFind>,
     directory_entries: Option<Vec<PathBuf>>,
     completion_cycle: Option<CompletionCycle>,
 }
@@ -89,6 +98,7 @@ impl Editor {
             message: "Ready · :help for controls".into(),
             prompt: String::new(),
             search: String::new(),
+            char_find_highlight: None,
             output_view: None,
             theme: Theme::default(),
             buffer_action: None,
@@ -105,6 +115,7 @@ impl Editor {
             register: vec![],
             linewise: true,
             preferred_col: None,
+            last_char_find: None,
             directory_entries: None,
             completion_cycle: None,
         }
