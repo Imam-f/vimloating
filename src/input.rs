@@ -180,10 +180,18 @@ pub fn handle_keyboard(
         let scroll_up = scroll_up || repeated_scroll == Some(KeyCode::Y);
         let scroll_down = scroll_down || repeated_scroll == Some(KeyCode::E);
         let (rows, cols, _, _) = text_grid(*font_size);
-        if is_key_pressed(KeyCode::D) || is_key_pressed(KeyCode::U) {
+        if [KeyCode::D, KeyCode::U, KeyCode::F, KeyCode::B]
+            .into_iter()
+            .any(is_key_pressed)
+        {
+            let full_page = is_key_pressed(KeyCode::F) || is_key_pressed(KeyCode::B);
             editor.move_by_display_rows(
-                if is_key_pressed(KeyCode::D) { 1 } else { -1 },
-                (rows / 2).max(1),
+                if is_key_pressed(KeyCode::D) || is_key_pressed(KeyCode::F) {
+                    1
+                } else {
+                    -1
+                },
+                if full_page { rows } else { (rows / 2).max(1) },
                 rows,
                 cols,
                 *word_wrap,
@@ -194,15 +202,10 @@ pub fn handle_keyboard(
                     (1, 1)
                 } else if repeated_scroll == Some(KeyCode::Y) || is_key_pressed(KeyCode::Y) {
                     (-1, 1)
-                } else if is_key_pressed(KeyCode::F) {
-                    (1, rows)
                 } else {
-                    (-1, rows)
+                    (1, 1)
                 };
             editor.scroll_vertical(direction, amount.max(1), rows, cols, *word_wrap);
-            if [KeyCode::F, KeyCode::B].into_iter().any(is_key_pressed) {
-                editor.center_cursor(rows, cols, *word_wrap);
-            }
         }
         if scroll_left || scroll_right {
             if *word_wrap {

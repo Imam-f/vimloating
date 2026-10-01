@@ -586,6 +586,29 @@ fn display_page_motion_tracks_wrapped_screen_rows() {
 }
 
 #[test]
+fn full_page_motion_clamps_at_both_file_edges() {
+    let text = (0..25)
+        .map(|row| row.to_string())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let mut e = Editor::new(&text, None);
+
+    e.move_by_display_rows(1, 20, 20, 80, false);
+    assert_eq!(e.cursor.row, 20);
+    e.move_by_display_rows(1, 20, 20, 80, false);
+    assert_eq!(e.cursor.row, 24);
+    e.move_by_display_rows(1, 20, 20, 80, false);
+    assert_eq!(e.cursor.row, 24);
+
+    e.move_by_display_rows(-1, 20, 20, 80, false);
+    assert_eq!(e.cursor.row, 4);
+    e.move_by_display_rows(-1, 20, 20, 80, false);
+    assert_eq!(e.cursor.row, 0);
+    e.move_by_display_rows(-1, 20, 20, 80, false);
+    assert_eq!(e.cursor.row, 0);
+}
+
+#[test]
 fn save_round_trip_and_failed_save_keeps_dirty_state() {
     let unique = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

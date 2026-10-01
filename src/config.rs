@@ -13,7 +13,7 @@ pub const TEXT_Y: f32 = 0.0;
 pub const BASE_FONT_SIZE: u16 = 27;
 pub const ZOOM_SENSITIVITY: f32 = 0.004;
 pub const ZOOM_SMOOTHING: f32 = 3.5;
-pub const VERTICAL_MOTION_STEP: f64 = 0.045;
+pub const VERTICAL_MOTION_STEP: f64 = 0.025;
 pub const INSERT_IDLE_TIMEOUT: f64 = 15.0;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Theme {
