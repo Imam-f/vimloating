@@ -33,6 +33,12 @@ pub enum BufferAction {
     Delete { target: Option<String>, force: bool },
 }
 
+struct CompletionCycle {
+    candidates: Vec<String>,
+    index: usize,
+    last: String,
+}
+
 #[derive(Clone)]
 struct Snapshot {
     lines: Vec<Vec<char>>,
@@ -66,6 +72,7 @@ pub struct Editor {
     linewise: bool,
     preferred_col: Option<usize>,
     directory_entries: Option<Vec<PathBuf>>,
+    completion_cycle: Option<CompletionCycle>,
 }
 
 impl Editor {
@@ -98,6 +105,7 @@ impl Editor {
             linewise: true,
             preferred_col: None,
             directory_entries: None,
+            completion_cycle: None,
         }
     }
 
@@ -179,6 +187,7 @@ impl Editor {
         self.pending = None;
         self.count.clear();
         self.prompt.clear();
+        self.completion_cycle = None;
         self.preferred_col = None;
         self.clamp();
     }

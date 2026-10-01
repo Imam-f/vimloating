@@ -57,7 +57,9 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `u` / `Ctrl+R` | Undo / redo |
 | `/pattern`, `Enter` | Find text, with highlights and wraparound |
 | `n` / `N` | Next / previous match |
-| `Ctrl+D` / `Ctrl+U` | Move half a page down / up |
+| `Ctrl+E` / `Ctrl+Y` | Scroll down / up one display line |
+| `Ctrl+D` / `Ctrl+U` | Scroll down / up half a page |
+| `Ctrl+F` / `Ctrl+B` | Scroll down / up one page |
 | `Ctrl+J` / `Ctrl+K` | Animate through five lines down / up |
 | `PageDown` / `PageUp` | Move a page down / up |
 | `Ctrl+S` | Save to the current filename |
@@ -65,13 +67,13 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `Ctrl+W` / `Ctrl+Backspace` in Insert mode | Delete the previous word |
 | `Ctrl+-` / `Ctrl+=` | Decrease / increase font size |
 
-Counts work with movements and common operations, such as `5j`, `3w`, `2dd`, `4yy`, and `2p`. Each Insert session is one undo step. In Insert mode, Enter auto-indents, Tab inserts four spaces, and Backspace/Delete can join adjacent lines. After 15 seconds without keyboard, pointer, mouse-button, or scroll activity, Insert mode automatically returns to Normal. The buffer scrolls vertically and horizontally to keep the cursor visible.
+Counts work with movements and common operations, such as `5j`, `3w`, `2dd`, `4yy`, and `2p`. Each Insert session is one undo step. In Insert mode, Enter auto-indents, Tab inserts four spaces, and Backspace/Delete can join adjacent lines. After 15 seconds without keyboard, pointer, mouse-button, or scroll activity, Insert mode automatically returns to Normal. Vertical scroll keys keep the cursor visible, and can scroll past the end until only the final display line remains visible.
 
 Word wrap is on by default. Press Enter twice quickly in Normal mode to toggle it. `Ctrl+H` / `Ctrl+L` scroll the text horizontally; using either shortcut turns wrapping off so long lines can be scrolled. Font size can be adjusted from 12–42 px with the Ctrl+-/= shortcuts.
 
 ### Commands
 
-Type `:`, enter a command, and press Enter. Paths can contain spaces; enter them directly without quotes.
+Type `:`, enter a command, and press Enter. Press Tab to complete command names or file paths; repeated Tab cycles through matches. Paths can contain spaces; enter them directly without quotes.
 
 | Command | Action |
 | --- | --- |
@@ -81,6 +83,7 @@ Type `:`, enter a command, and press Enter. Paths can contain spaces; enter them
 | `:e! path/to/file` | Open a file, discarding unsaved changes |
 | `:Explore` / `:Ex [directory]` | Browse a directory; use `j`/`k`, Enter to open, and `-` for the parent |
 | `:!command` | Run a command in the current file's directory and show captured output; press Esc to return |
+| `:.!command` | Feed the current line to a command and replace it with the command's output |
 | `:theme everforest` | Switch to the Everforest dark palette |
 | `:theme solarized-blue` | Switch to the blue Solarized Dark palette |
 | `:theme default` | Restore the Vimfloating palette |

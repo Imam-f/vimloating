@@ -155,6 +155,60 @@ impl Editor {
         }
     }
 
+    #[allow(dead_code)]
+    pub fn scroll_vertical(
+        &mut self,
+        direction: isize,
+        amount: usize,
+        rows: usize,
+        cols: usize,
+        wrap: bool,
+    ) {
+        let display_rows = self.display_rows(cols, wrap);
+        let max_top = display_rows.len().saturating_sub(1);
+        self.top = self.top.min(max_top);
+        self.top = if direction < 0 {
+            self.top.saturating_sub(amount)
+        } else {
+            self.top.saturating_add(amount).min(max_top)
+        };
+
+        let cols = cols.max(1);
+        let segment = if wrap {
+            self.cursor.col / cols * cols
+        } else {
+            0
+        };
+        let cursor_index = display_rows
+            .iter()
+            .position(|&(row, start)| row == self.cursor.row && start == segment)
+            .unwrap_or(0);
+        let visible_rows = rows.max(1);
+        let visible_end = self
+            .top
+            .saturating_add(visible_rows)
+            .min(display_rows.len());
+        let target_index = if cursor_index < self.top {
+            Some(self.top)
+        } else if cursor_index >= visible_end {
+            Some(visible_end.saturating_sub(1))
+        } else {
+            None
+        };
+
+        if let Some(target_index) = target_index
+            && let Some(&(row, start)) = display_rows.get(target_index)
+        {
+            let current_start = display_rows[cursor_index].1;
+            self.cursor = Pos {
+                row,
+                col: start + self.cursor.col.saturating_sub(current_start),
+            };
+            self.preferred_col = None;
+            self.clamp();
+        }
+    }
+
     pub fn reveal_cursor_after_motion(
         &mut self,
         previous_cursor: Pos,

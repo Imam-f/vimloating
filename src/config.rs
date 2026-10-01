@@ -191,8 +191,10 @@ fn main() {
 //   :e notes.rs    open a UTF-8 file
 //   :Explore       browse files; Enter opens, - goes to the parent
 //   :!git status   run a shell command (Esc closes its output)
+//   :.!pwd         replace the current line with command output
 //   :theme everforest / solarized-blue  change the colors
 //   :ls             list buffers · :b 2 switches · :bn / :bp cycles · :bd deletes
+//   Tab             complete command names and file paths in the command prompt
 
 // Space is yours
 //   Wheel          gentle zoom
@@ -204,6 +206,8 @@ fn main() {
 //   Ctrl+- / =     change font size
 //   Ctrl+W / Ctrl+Backspace delete previous word in Insert mode
 //   Ctrl+J / K     animate five-line movement
+//   Ctrl+E / Y     scroll one display line
+//   Ctrl+D / U     scroll half a page; Ctrl+F / B one page
 //   Idle 15s       return to Normal mode
 //   Enter Enter    toggle word wrap in Normal mode
 //   Ctrl+H / L     scroll horizontally (turns wrap off)

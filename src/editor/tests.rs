@@ -173,6 +173,20 @@ fn horizontal_scroll_moves_the_buffer_view_without_moving_the_cursor() {
 }
 
 #[test]
+fn vertical_scroll_can_overscroll_until_only_the_last_line_is_visible() {
+    let mut e = Editor::new("0\n1\n2\n3\n4\n5\n6\n7\n8\n9", None);
+    e.scroll_vertical(1, 100, 5, 20, false);
+
+    assert_eq!(e.top, 9);
+    assert_eq!(e.cursor.row, 9);
+    assert_eq!(e.display_rows(20, false).len() - e.top, 1);
+
+    e.scroll_vertical(-1, 1, 5, 20, false);
+    assert_eq!(e.top, 8);
+    assert_eq!(e.cursor.row, 9);
+}
+
+#[test]
 fn zoom_does_not_scroll_until_the_cursor_moves() {
     let mut e = Editor::new("0\n1\n2\n3\n4\n5\n6\n7\n8\n9", None);
     e.cursor.row = 8;
@@ -409,4 +423,43 @@ fn quitting_checks_modified_hidden_buffers() {
     buffers.protect_quit();
     assert!(buffers.active().quit);
     fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn command_tab_completion_cycles_matching_commands() {
+    let mut editor = Editor::new("", None);
+    editor.mode = Mode::Command;
+    editor.prompt = "buf".into();
+
+    editor.complete_command();
+    assert_eq!(editor.prompt, "buffer");
+    editor.complete_command();
+    assert_eq!(editor.prompt, "buffers");
+    editor.complete_command();
+    assert_eq!(editor.prompt, "buffer");
+}
+
+#[test]
+fn shell_filter_replaces_the_current_line_and_can_be_undone() {
+    let original = "replace this\nkeep this";
+    let mut editor = Editor::new(original, None);
+    #[cfg(windows)]
+    editor.command(".!echo filtered-line");
+    #[cfg(not(windows))]
+    editor.command(".!printf filtered-line");
+
+    assert_eq!(editor.text(), "filtered-line\nkeep this");
+    assert_eq!(editor.cursor.row, 0);
+    editor.undo(false);
+    assert_eq!(editor.text(), original);
+}
+
+#[test]
+fn shell_pwd_filter_replaces_the_line_with_the_current_directory() {
+    let mut editor = Editor::new("replace this", None);
+    editor.command(".!pwd");
+    assert_eq!(
+        editor.text(),
+        std::env::current_dir().unwrap().to_string_lossy()
+    );
 }
