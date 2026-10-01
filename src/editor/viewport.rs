@@ -202,6 +202,7 @@ impl Editor {
         self.clamp();
     }
 
+    #[cfg(test)]
     pub fn display_rows(&self, cols: usize, wrap: bool) -> Vec<(usize, usize)> {
         let cols = cols.max(1);
         let mut rows = Vec::new();
@@ -212,7 +213,7 @@ impl Editor {
                 for start in (0..line.len()).step_by(cols) {
                     rows.push((row, start));
                 }
-                if self.mode == super::Mode::Insert && line.len() % cols == 0 {
+                if self.mode == super::Mode::Insert && line.len().is_multiple_of(cols) {
                     rows.push((row, line.len()));
                 }
             }
@@ -220,24 +221,118 @@ impl Editor {
         rows
     }
 
+    fn line_segment_count(&self, row: usize, cols: usize, wrap: bool, insert_mode: bool) -> usize {
+        let line = &self.lines[row];
+        if !wrap || line.is_empty() {
+            1
+        } else {
+            let mut count = line.len().div_ceil(cols);
+            if insert_mode && line.len().is_multiple_of(cols) {
+                count += 1;
+            }
+            count
+        }
+    }
+
+    fn ensure_display(&self, cols: usize, wrap: bool) {
+        let cols = cols.max(1);
+        let insert_mode = self.mode == super::Mode::Insert;
+        {
+            let cache = self.display_cache.borrow();
+            if cache.revision == self.structural_revision
+                && cache.cols == cols
+                && cache.wrap == wrap
+                && cache.insert_mode == insert_mode
+                && cache.line_count == self.lines.len()
+            {
+                return;
+            }
+        }
+        let mut starts = Vec::with_capacity(self.lines.len() + 1);
+        starts.push(0);
+        let mut total = 0usize;
+        for row in 0..self.lines.len() {
+            total += self.line_segment_count(row, cols, wrap, insert_mode);
+            starts.push(total);
+        }
+        *self.display_cache.borrow_mut() = super::DisplayCache {
+            revision: self.structural_revision,
+            cols,
+            wrap,
+            insert_mode,
+            line_count: self.lines.len(),
+            starts,
+        };
+    }
+
+    /// Absolute display-row index of a cursor position, without scanning the whole buffer.
+    pub fn display_index(&self, pos: Pos, cols: usize, wrap: bool) -> usize {
+        let cols = cols.max(1);
+        self.ensure_display(cols, wrap);
+        let cache = self.display_cache.borrow();
+        let base = cache
+            .starts
+            .get(pos.row.min(self.lines.len()))
+            .copied()
+            .unwrap_or(0);
+        if wrap { base + pos.col / cols } else { base }
+    }
+
+    /// Total number of rendered display rows.
+    pub fn display_total(&self, cols: usize, wrap: bool) -> usize {
+        self.ensure_display(cols.max(1), wrap);
+        let cache = self.display_cache.borrow();
+        cache.starts.last().copied().unwrap_or(0)
+    }
+
+    /// Up to `count` display rows starting at absolute display index `top`.
+    /// Only touches the lines intersecting that window, so cost is O(count), not O(lines).
+    pub fn display_window(
+        &self,
+        top: usize,
+        count: usize,
+        cols: usize,
+        wrap: bool,
+    ) -> Vec<(usize, usize)> {
+        let cols = cols.max(1);
+        self.ensure_display(cols, wrap);
+        let cache = self.display_cache.borrow();
+        let mut out = Vec::with_capacity(count);
+        if count == 0 || self.lines.is_empty() {
+            return out;
+        }
+        let total = cache.starts.last().copied().unwrap_or(0);
+        if top >= total {
+            return out;
+        }
+        let insert_mode = cache.insert_mode;
+        let mut row = cache
+            .starts
+            .partition_point(|&start| start <= top)
+            .saturating_sub(1);
+        let mut segment = top - cache.starts[row];
+        while out.len() < count && row < self.lines.len() {
+            let line = &self.lines[row];
+            let segments = self.line_segment_count(row, cols, wrap, insert_mode);
+            while segment < segments && out.len() < count {
+                let start = if !wrap || line.is_empty() {
+                    0
+                } else {
+                    segment * cols
+                };
+                out.push((row, start));
+                segment += 1;
+            }
+            row += 1;
+            segment = 0;
+        }
+        out
+    }
+
     pub fn reveal_cursor(&mut self, rows: usize, cols: usize, wrap: bool) {
         let rows = rows.max(1);
         let cols = cols.max(1);
-        let display_rows = self.display_rows(cols, wrap);
-        let segment = if wrap {
-            self.cursor.col / cols * cols
-        } else {
-            0
-        };
-        let row_index = display_rows
-            .iter()
-            .position(|&(row, start)| row == self.cursor.row && start == segment)
-            .unwrap_or_else(|| {
-                display_rows
-                    .iter()
-                    .rposition(|&(row, _)| row == self.cursor.row)
-                    .unwrap_or(0)
-            });
+        let row_index = self.display_index(self.cursor, cols, wrap);
         if row_index < self.top {
             self.top = row_index;
         }
@@ -258,18 +353,9 @@ impl Editor {
 
     pub fn center_cursor(&mut self, rows: usize, cols: usize, wrap: bool) {
         let rows = rows.max(1);
-        let display_rows = self.display_rows(cols, wrap);
         let cols = cols.max(1);
-        let segment = if wrap {
-            self.cursor.col / cols * cols
-        } else {
-            0
-        };
-        let row_index = display_rows
-            .iter()
-            .position(|&(row, start)| row == self.cursor.row && start == segment)
-            .unwrap_or(0);
-        let max_top = display_rows.len().saturating_sub(rows);
+        let row_index = self.display_index(self.cursor, cols, wrap);
+        let max_top = self.display_total(cols, wrap).saturating_sub(rows);
         self.top = row_index.saturating_sub(rows / 2).min(max_top);
     }
 
@@ -281,25 +367,26 @@ impl Editor {
         cols: usize,
         wrap: bool,
     ) {
-        let display_rows = self.display_rows(cols, wrap);
         let cols = cols.max(1);
+        let total = self.display_total(cols, wrap);
         let current_segment = if wrap {
             self.cursor.col / cols * cols
         } else {
             0
         };
-        let current_index = display_rows
-            .iter()
-            .position(|&(row, start)| row == self.cursor.row && start == current_segment)
-            .unwrap_or(0);
+        let current_index = self.display_index(self.cursor, cols, wrap);
         let target_index = if direction < 0 {
             current_index.saturating_sub(amount)
         } else {
             current_index
                 .saturating_add(amount)
-                .min(display_rows.len().saturating_sub(1))
+                .min(total.saturating_sub(1))
         };
-        let (row, start) = display_rows[target_index];
+        let (row, start) = self
+            .display_window(target_index, 1, cols, wrap)
+            .first()
+            .copied()
+            .unwrap_or((self.cursor.row, current_segment));
         let column_offset = self.cursor.col.saturating_sub(current_segment);
         self.cursor = Pos {
             row,
@@ -317,10 +404,15 @@ impl Editor {
     pub fn move_to_screen_line(&mut self, offset: usize, cols: usize, wrap: bool) {
         self.search_task = None;
         self.char_find_hints.clear();
-        let display_rows = self.display_rows(cols, wrap);
-        let index = self.top.saturating_add(offset).min(display_rows.len() - 1);
-        let (row, start) = display_rows[index];
-        let end = (start + cols.max(1)).min(self.lines[row].len());
+        let cols = cols.max(1);
+        let total = self.display_total(cols, wrap);
+        let index = self.top.saturating_add(offset).min(total.saturating_sub(1));
+        let (row, start) = self
+            .display_window(index, 1, cols, wrap)
+            .first()
+            .copied()
+            .unwrap_or((0, 0));
+        let end = (start + cols).min(self.lines[row].len());
         let col = (start..end)
             .find(|&col| !self.lines[row][col].is_whitespace())
             .unwrap_or(start);
@@ -342,8 +434,9 @@ impl Editor {
     ) {
         self.search_task = None;
         self.char_find_hints.clear();
-        let display_rows = self.display_rows(cols, wrap);
-        let max_top = display_rows.len().saturating_sub(1);
+        let cols = cols.max(1);
+        let total = self.display_total(cols, wrap);
+        let max_top = total.saturating_sub(1);
         self.top = self.top.min(max_top);
         self.top = if direction < 0 {
             self.top.saturating_sub(amount)
@@ -351,21 +444,14 @@ impl Editor {
             self.top.saturating_add(amount).min(max_top)
         };
 
-        let cols = cols.max(1);
         let segment = if wrap {
             self.cursor.col / cols * cols
         } else {
             0
         };
-        let cursor_index = display_rows
-            .iter()
-            .position(|&(row, start)| row == self.cursor.row && start == segment)
-            .unwrap_or(0);
+        let cursor_index = self.display_index(self.cursor, cols, wrap);
         let visible_rows = rows.max(1);
-        let visible_end = self
-            .top
-            .saturating_add(visible_rows)
-            .min(display_rows.len());
+        let visible_end = self.top.saturating_add(visible_rows).min(total);
         let target_index = if cursor_index < self.top {
             Some(self.top)
         } else if cursor_index >= visible_end {
@@ -375,9 +461,13 @@ impl Editor {
         };
 
         if let Some(target_index) = target_index
-            && let Some(&(row, start)) = display_rows.get(target_index)
+            && let Some(&(row, start)) = self.display_window(target_index, 1, cols, wrap).first()
         {
-            let current_start = display_rows[cursor_index].1;
+            let current_start = if wrap {
+                self.cursor.col / cols * cols
+            } else {
+                segment
+            };
             self.cursor = Pos {
                 row,
                 col: start + self.cursor.col.saturating_sub(current_start),

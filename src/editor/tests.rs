@@ -948,3 +948,31 @@ fn shell_pwd_filter_replaces_the_line_with_the_current_directory() {
         std::env::current_dir().unwrap().to_string_lossy()
     );
 }
+
+#[test]
+fn windowed_display_index_matches_the_full_row_map() {
+    let mut editor = Editor::new(
+        "short\nthis line is definitely longer than four columns\n\nx",
+        None,
+    );
+    for cols in [1usize, 4, 7, 80] {
+        for wrap in [true, false] {
+            for mode in [Mode::Normal, Mode::Insert] {
+                editor.mode = mode;
+                let full = editor.display_rows(cols, wrap);
+                assert_eq!(editor.display_total(cols, wrap), full.len());
+                assert_eq!(editor.display_window(0, full.len(), cols, wrap), full);
+
+                for start in 0..full.len() {
+                    let slice = editor.display_window(start, full.len() - start, cols, wrap);
+                    assert_eq!(slice, full[start..].to_vec());
+                }
+
+                for (index, &(row, col)) in full.iter().enumerate() {
+                    let pos = Pos { row, col };
+                    assert_eq!(editor.display_index(pos, cols, wrap), index);
+                }
+            }
+        }
+    }
+}

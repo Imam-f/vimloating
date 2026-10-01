@@ -5,6 +5,7 @@ const INDENT_WIDTH: usize = 4;
 impl Editor {
     pub fn begin_insert(&mut self, key: char) {
         self.horizontal_scroll_hold = false;
+        self.touch();
         self.checkpoint();
         let row = self.cursor.row;
         match key {
@@ -38,12 +39,14 @@ impl Editor {
     pub fn insert_char(&mut self, ch: char) {
         self.horizontal_scroll_hold = false;
         if !ch.is_control() {
+            self.touch();
             self.lines[self.cursor.row].insert(self.cursor.col, ch);
             self.cursor.col += 1;
         }
     }
 
     pub fn insert_text(&mut self, text: &str) {
+        self.touch();
         let normalized = text.replace("\r\n", "\n");
         for ch in normalized.chars() {
             match ch {
@@ -64,6 +67,7 @@ impl Editor {
 
     pub fn newline(&mut self) {
         self.horizontal_scroll_hold = false;
+        self.touch();
         let indent: Vec<char> = self.lines[self.cursor.row]
             .iter()
             .take(self.cursor.col)
@@ -80,6 +84,7 @@ impl Editor {
 
     pub fn backspace(&mut self) {
         self.horizontal_scroll_hold = false;
+        self.touch();
         if self.cursor.col > 0 {
             self.cursor.col -= 1;
             self.lines[self.cursor.row].remove(self.cursor.col);
@@ -92,6 +97,7 @@ impl Editor {
     }
 
     pub fn delete_prev_word(&mut self) {
+        self.touch();
         let row = self.cursor.row;
         let col = self.cursor.col;
         if col == 0 {
@@ -130,6 +136,7 @@ impl Editor {
 
     pub fn delete_forward(&mut self) {
         self.horizontal_scroll_hold = false;
+        self.touch();
         let row = self.cursor.row;
         if self.cursor.col < self.lines[row].len() {
             self.lines[row].remove(self.cursor.col);
@@ -175,6 +182,7 @@ impl Editor {
         }
 
         self.checkpoint();
+        self.touch();
         self.horizontal_scroll_hold = false;
         self.preferred_col = None;
         for (row, amount) in changes {
@@ -223,6 +231,7 @@ impl Editor {
         }
 
         self.checkpoint();
+        self.touch();
         self.lines.swap(row, target);
         self.cursor.row = target;
         self.preferred_col = None;
@@ -273,6 +282,7 @@ impl Editor {
         }
 
         self.checkpoint();
+        self.touch();
         if direction > 0 {
             self.lines[start..=end + 1].rotate_right(1);
         } else {

@@ -31,9 +31,10 @@ Running without a filename opens an editable introduction buffer. Save it under 
 | `F2` | Smoothly return to the home view |
 | `F1` | Show/hide the camera-controls overlay |
 | `F3` | Toggle the perspective floor grid (off at startup) |
-| `F4` | Toggle flat-only mode (on by default); panning remains available |
+| `F4` | Toggle flat-only/orbit in 3D; from 2D-only, enter orbit mode |
+| `F5` | Toggle 2D-only mode (on by default); fills the viewport and disables camera movement |
 
-The text is rendered into an offscreen OpenGL texture at 2× the window's physical pixel width (with a 3200-pixel minimum), recreated when the viewport or display scale changes, then placed on the world-space mesh. The extra sampling headroom keeps text crisp as the surface is zoomed in. Flat-only mode is on by default: it keeps the surface facing you, hides the scene frame and HUD, and still allows panning. The floor grid starts hidden and can be shown with `F3`. Turn flat-only mode off with `F4` to orbit. Wheel zoom is deliberately gentle, and camera motion uses frame-rate-independent exponential smoothing. Mouse positioning uses a ray/plane intersection, so it continues to work when the surface is rotated.
+The text is rendered into an offscreen OpenGL texture at 2× the window's physical pixel width (with a 3200-pixel minimum), recreated when the viewport or display scale changes. In 2D-only mode (enabled by default), that texture fills the viewport and camera movement is disabled; press `F5` to toggle it off or on. `F4` keeps its flat-only/orbit behavior in 3D, and exits 2D-only directly into orbit mode. Flat-only mode keeps the surface facing you and hides the scene frame and HUD. The floor grid starts hidden and can be shown with `F3`. Wheel zoom is deliberately gentle, and camera motion uses frame-rate-independent exponential smoothing. Mouse positioning uses a ray/plane intersection, so it continues to work when the surface is rotated.
 
 ## Vim controls
 
@@ -42,6 +43,7 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | Input | Action |
 | --- | --- |
 | `h` `j` `k` `l` / arrow keys | Move left / down / up / right |
+| `Home` / `End` | Move to line start / line end |
 | `w` `b` `e` | Next word / previous word / word end |
 | `f{char}` / `F{char}` | Find next / previous matching character on the line; pressing `f` / `F` highlights and underlines a suggested letter in every following / previous word |
 | `t{char}` / `T{char}` | Move just before / after the next / previous matching character; `t` / `T` show the same word-target hints |
@@ -61,8 +63,11 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `v` / `V`, then movement | Select characters / whole lines |
 | `o` in Visual mode | Switch the active end of the selection |
 | `d` / `x` / `y` in Visual mode | Delete / delete / yank the selection; line selections paste as lines |
+| `<` / `>` | Unindent / indent the current line, or every selected line in Visual mode |
+| `Alt+J` / `Alt+K` | Move the current line (or the selected lines) down / up, re-indenting to match |
 | `zz` | Center the cursor line in the view |
 | `u` / `Ctrl+R` | Undo / redo |
+| `Ctrl+C` | Return to Normal from any mode (same as `Esc`) |
 | `/pattern` / `?pattern`, `Enter` | Search forward / backward with live highlights and wraparound |
 | `n` / `N` | Repeat in the last search direction / opposite direction |
 | `Ctrl+6` | Toggle to the last active buffer |
@@ -99,13 +104,13 @@ Type `:`, enter a command, and press Enter. Press Tab to complete command names 
 | `:theme solarized-blue` | Switch to the blue Solarized Dark palette |
 | `:theme default` | Restore the Vimfloating palette |
 | `:ls` / `:buffers` | Show the buffer list; press Esc to return |
-| `:b {id or name}` | Switch to a buffer by its list number or filename |
-| `:bn` / `:bp` | Switch to the next / previous buffer; modified buffers stay open in memory |
-| `:bd` / `:b delete` | Delete the current buffer; add `!` to discard unsaved changes |
+| `:b {id or name}` / `:buffer` | Switch to a buffer by its list number or filename |
+| `:bn` / `:bp` / `:bnext` / `:bprevious` | Switch to the next / previous buffer; modified buffers stay open in memory |
+| `:bd` / `:bdelete` / `:b delete` | Delete the current buffer; add `!` to discard unsaved changes |
 | `:q` | Quit if there are no unsaved changes |
 | `:q!` | Quit and discard changes |
 | `:wq` / `:x` | Save and quit |
-| `:noh` | Clear search highlighting |
+| `:noh` / `:nohlsearch` | Clear search highlighting |
 | `:help` | Show a compact bindings reminder |
 
 Closing the window also checks for unsaved changes; use `:wq` or `:q!` when needed.
@@ -115,6 +120,15 @@ Closing the window also checks for unsaved changes; use `:wq` or `:q!` when need
 This is a working single-buffer prototype with a useful subset of Vim controls. It includes lightweight comment/string coloring, character-indexed Unicode editing, a bounded undo history, and UTF-8 file I/O. It does not implement Vim's full operator/motion grammar, plugins, LSP, or multiple floating documents.
 
 Files are normalized to LF line endings when opened. Existing tab characters are preserved and displayed as a single arrow cell. Text uses an installed monospace font (Consolas, Menlo, DejaVu Sans Mono, or Liberation Mono), falling back to Macroquad's built-in font; available glyphs depend on the font.
+
+## TODO
+
+- 3D control with keyboard
+- CLI command
+- TUI mode
+- LSP support
+- Completion
+- Tree-sitter support
 
 ## Development
 

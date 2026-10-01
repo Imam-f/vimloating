@@ -344,25 +344,6 @@ pub fn handle_keyboard(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::promote_shifted_find_key;
-
-    #[test]
-    fn shifted_find_keys_are_preserved_even_when_character_events_are_missing() {
-        let mut chars = vec!['f', 'x'];
-        promote_shifted_find_key(&mut chars, 'f', 'F', true);
-        assert_eq!(chars, vec!['F', 'x']);
-
-        let mut chars = vec!['x'];
-        promote_shifted_find_key(&mut chars, 't', 'T', true);
-        assert_eq!(chars, vec!['T', 'x']);
-
-        promote_shifted_find_key(&mut chars, 'f', 'F', false);
-        assert_eq!(chars, vec!['T', 'x']);
-    }
-}
-
 pub fn advance_vertical_motion(editor: &mut Editor, vertical_motion: &mut Option<VerticalMotion>) {
     let now = get_time();
     let Some(motion) = vertical_motion.as_mut() else {
@@ -380,5 +361,24 @@ pub fn advance_vertical_motion(editor: &mut Editor, vertical_motion: &mut Option
         } else {
             *vertical_motion = None;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::promote_shifted_find_key;
+
+    #[test]
+    fn shifted_find_keys_are_preserved_even_when_character_events_are_missing() {
+        let mut chars = vec!['f', 'x'];
+        promote_shifted_find_key(&mut chars, 'f', 'F', true);
+        assert_eq!(chars, vec!['F', 'x']);
+
+        let mut chars = vec!['x'];
+        promote_shifted_find_key(&mut chars, 't', 'T', true);
+        assert_eq!(chars, vec!['T', 'x']);
+
+        promote_shifted_find_key(&mut chars, 'f', 'F', false);
+        assert_eq!(chars, vec!['T', 'x']);
     }
 }

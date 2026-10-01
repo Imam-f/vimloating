@@ -201,11 +201,12 @@ fn main() {
 
 // Space is yours
 //   Wheel          gentle zoom
-//   Right drag     orbit (F4 turns orbit off)
+//   Right drag     orbit (F4 toggles 2D-only/orbit)
 //   Middle drag    pan the camera
 //   F2             return to the straight-on view
 //   F3             toggle the floor grid
-//   F4             toggle flat-only mode (default on)
+//   F4             toggle flat-only / orbit (exits 2D into orbit)
+//   F5             toggle 2D-only mode on/off
 //   Ctrl+- / =     change font size
 //   Ctrl+W / Ctrl+Backspace delete previous word in Insert mode
 //   Ctrl+J / K     animate five-line movement
@@ -251,18 +252,6 @@ fn parse_user_config(contents: &str) -> UserConfig {
     settings
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{Theme, parse_user_config};
-
-    #[test]
-    fn parses_theme_and_2d_only_setting() {
-        let settings = parse_user_config("theme=everforest\n2d_only=true");
-        assert_eq!(settings.theme, Some(Theme::Everforest));
-        assert_eq!(settings.two_d_only, Some(true));
-    }
-}
-
 pub fn window_conf() -> Conf {
     Conf {
         window_title: "vimloating".into(),
@@ -272,5 +261,17 @@ pub fn window_conf() -> Conf {
         sample_count: 4,
         window_resizable: true,
         ..Default::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Theme, parse_user_config};
+
+    #[test]
+    fn parses_theme_and_2d_only_setting() {
+        let settings = parse_user_config("theme=everforest\n2d_only=true");
+        assert_eq!(settings.theme, Some(Theme::Everforest));
+        assert_eq!(settings.two_d_only, Some(true));
     }
 }

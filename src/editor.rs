@@ -1,4 +1,5 @@
 use crate::config::Theme;
+use std::cell::RefCell;
 use std::path::PathBuf;
 
 pub mod buffers;
@@ -45,6 +46,17 @@ struct CharFind {
     target: char,
     direction: isize,
     till: bool,
+}
+
+struct DisplayCache {
+    revision: u64,
+    cols: usize,
+    wrap: bool,
+    insert_mode: bool,
+    line_count: usize,
+    /// Absolute display row index where each source line begins; one extra sentinel
+    /// entry holds the total display row count.
+    starts: Vec<usize>,
 }
 
 struct SearchTask {
@@ -100,6 +112,8 @@ pub struct Editor {
     search_task: Option<SearchTask>,
     directory_entries: Option<Vec<PathBuf>>,
     completion_cycle: Option<CompletionCycle>,
+    structural_revision: u64,
+    display_cache: RefCell<DisplayCache>,
 }
 
 impl Editor {
@@ -139,7 +153,21 @@ impl Editor {
             search_task: None,
             directory_entries: None,
             completion_cycle: None,
+            structural_revision: 0,
+            display_cache: RefCell::new(DisplayCache {
+                revision: u64::MAX,
+                cols: 0,
+                wrap: false,
+                insert_mode: false,
+                line_count: 0,
+                starts: Vec::new(),
+            }),
         }
+    }
+
+    /// Marks the buffer contents as changed so the display-row index is rebuilt lazily.
+    pub(super) fn touch(&mut self) {
+        self.structural_revision = self.structural_revision.wrapping_add(1);
     }
 
     pub fn text(&self) -> String {
@@ -194,6 +222,7 @@ impl Editor {
             self.lines = state.lines;
             self.cursor = state.cursor;
             self.anchor = state.anchor;
+            self.touch();
             self.clamp();
             self.message = if redo { "Redo" } else { "Undo" }.into();
         }

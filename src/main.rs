@@ -57,7 +57,7 @@ async fn main() {
     let (target_width, target_height) = render::editor_target_dimensions();
     let mut target = render::create_editor_target(target_width, target_height);
     let mut board = render::board_mesh(target.texture.clone());
-    let mut view = View::new(user_config.two_d_only.unwrap_or(false));
+    let mut view = View::new(user_config.two_d_only.unwrap_or(true));
     let mut help = false;
     let mut show_floor = false;
     let mut word_wrap = true;
@@ -153,8 +153,10 @@ async fn main() {
             vertical_motion = None;
             editor.follow_cursor_horizontally();
             let display_index = editor.top + ((point.y - TEXT_Y) / line_height) as usize;
-            let display_rows = editor.display_rows(visible_cols, word_wrap);
-            if let Some(&(row, segment_start)) = display_rows.get(display_index) {
+            if let Some(&(row, segment_start)) = editor
+                .display_window(display_index, 1, visible_cols, word_wrap)
+                .first()
+            {
                 let horizontal_offset = if word_wrap { 0 } else { editor.left };
                 editor.cancel_search();
                 editor.cursor = Pos {

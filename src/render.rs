@@ -3,6 +3,27 @@ use crate::editor::{Editor, Mode, Pos};
 use crate::view::View;
 use macroquad::prelude::*;
 
+/// Per-line work is bounded to this many screens' worth of columns, so a single
+/// pathologically long line cannot stall a frame.
+const HORIZONTAL_SCAN_FACTOR: usize = 10;
+
+fn is_comment_line(line: &[char], scan_cap: usize) -> bool {
+    let mut seen = 0;
+    for &ch in line.iter().take(scan_cap) {
+        if ch.is_whitespace() {
+            continue;
+        }
+        if ch != '/' {
+            return false;
+        }
+        seen += 1;
+        if seen == 2 {
+            return true;
+        }
+    }
+    false
+}
+
 pub fn system_font() -> Option<Font> {
     for path in [
         "C:/Windows/Fonts/consola.ttf",
@@ -91,6 +112,11 @@ pub fn text_grid(font_size: u16) -> (usize, usize, f32, f32) {
     (rows, cols, cell_width, line_height)
 }
 
+fn visible_cursor_row(cursor_index: usize, top: usize, rows: usize) -> Option<usize> {
+    let row = cursor_index.checked_sub(top)?;
+    (row < rows).then_some(row)
+}
+
 fn search_prefix(needle: &[char]) -> Vec<usize> {
     let mut prefix = vec![0; needle.len()];
     let mut matched = 0;
@@ -120,7 +146,14 @@ fn search_highlights(
     }
 
     let mut matched = 0;
-    for (col, ch) in line.iter().enumerate() {
+    let scan_start = visible_start.saturating_sub(needle.len());
+    let scan_end = (visible_end + needle.len()).min(line.len());
+    for (col, ch) in line
+        .iter()
+        .enumerate()
+        .skip(scan_start)
+        .take(scan_end.saturating_sub(scan_start))
+    {
         while matched > 0 && *ch != needle[matched] {
             matched = prefix[matched - 1];
         }
@@ -152,16 +185,12 @@ fn search_highlights(
 
 pub fn cursor_board_position(editor: &Editor, font_size: u16, word_wrap: bool) -> Vec2 {
     let (_, cols, cell_width, line_height) = text_grid(font_size);
-    let display_rows = editor.display_rows(cols, word_wrap);
     let segment = if word_wrap {
         editor.cursor.col / cols.max(1) * cols.max(1)
     } else {
         0
     };
-    let display_index = display_rows
-        .iter()
-        .position(|&(row, start)| row == editor.cursor.row && start == segment)
-        .unwrap_or(0);
+    let display_index = editor.display_index(editor.cursor, cols, word_wrap);
     let row_in_view = display_index.saturating_sub(editor.top);
     let visible_start = segment + if word_wrap { 0 } else { editor.left };
     let x = TEXT_X
@@ -193,30 +222,31 @@ pub fn draw_buffer(
         ))
     });
     clear_background(palette.background);
-    ui_line(90.0, 55.0, 90.0, 871.0, 1.0, palette.divider, scale);
+    ui_line(90.0, TEXT_Y, 90.0, 871.0, 1.0, palette.divider, scale);
 
     let (rows, cols, cell_width, line_height) = text_grid(font_size);
     let baseline = line_height * 0.78;
-    let display_rows = editor.display_rows(cols, word_wrap);
+    let display_rows = editor.display_window(editor.top, rows, cols, word_wrap);
+    let horizontal_scan_cap = cols.saturating_mul(HORIZONTAL_SCAN_FACTOR);
     let search_text = if editor.mode == Mode::Search {
         &editor.prompt
     } else {
         &editor.search
     };
     let search: Vec<char> = search_text.chars().collect();
+    let has_search = !search.is_empty();
     let search_prefix = search_prefix(&search);
     for visible in 0..rows {
-        let display_index = editor.top + visible;
         let y = TEXT_Y + visible as f32 * line_height;
-        let Some(&(row, segment_start)) = display_rows.get(display_index) else {
+        let Some(&(row, segment_start)) = display_rows.get(visible) else {
             ui_label("~", 48.0, y + baseline, 23, palette.gutter, font, scale);
             continue;
         };
         let line = &editor.lines[row];
         let visible_start = segment_start + if word_wrap { 0 } else { editor.left };
         let visible_end = (visible_start + cols).min(line.len());
-        let highlighted_cells =
-            search_highlights(line, &search, &search_prefix, visible_start, visible_end);
+        let highlighted_cells = has_search
+            .then(|| search_highlights(line, &search, &search_prefix, visible_start, visible_end));
         let cursor_segment = if word_wrap {
             editor.cursor.col / cols * cols
         } else {
@@ -266,22 +296,25 @@ pub fn draw_buffer(
             font,
             scale,
         );
-        let comment = line
-            .iter()
-            .skip_while(|c| c.is_whitespace())
-            .take(2)
-            .collect::<String>()
-            == "//";
+        let comment = is_comment_line(line, horizontal_scan_cap);
         let mut quoted = false;
-        for (col, &ch) in line.iter().enumerate() {
+        for &ch in line.iter().take(visible_start.min(horizontal_scan_cap)) {
             if ch == '"' {
                 quoted = !quoted;
             }
-            if col < visible_start || col >= visible_end {
-                continue;
+        }
+        let selection =
+            (editor.mode == Mode::Visual && !editor.visual_linewise).then(|| editor.selection());
+        for col in visible_start..visible_end {
+            let ch = line[col];
+            if ch == '"' {
+                quoted = !quoted;
             }
             let x = TEXT_X + (col - visible_start) as f32 * cell_width;
-            if highlighted_cells[col - visible_start] {
+            if highlighted_cells
+                .as_ref()
+                .is_some_and(|cells| cells[col - visible_start])
+            {
                 ui_rectangle(x, y, cell_width, line_height - 1.0, palette.search, scale);
             }
             let position = Pos { row, col };
@@ -290,19 +323,18 @@ pub fn draw_buffer(
             if is_find_hint || is_find_target {
                 ui_rectangle(x, y, cell_width, line_height - 1.0, palette.search, scale);
             }
-            if editor.mode == Mode::Visual && !editor.visual_linewise {
-                let (a, b) = editor.selection();
-                let pos = Pos { row, col };
-                if a <= pos && pos <= b {
-                    ui_rectangle(
-                        x,
-                        y,
-                        cell_width,
-                        line_height - 1.0,
-                        palette.selection,
-                        scale,
-                    );
-                }
+            if let Some((a, b)) = selection
+                && a <= position
+                && position <= b
+            {
+                ui_rectangle(
+                    x,
+                    y,
+                    cell_width,
+                    line_height - 1.0,
+                    palette.selection,
+                    scale,
+                );
             }
             let color = if comment {
                 palette.comment
@@ -310,7 +342,10 @@ pub fn draw_buffer(
                 palette.string
             } else if ch.is_ascii_digit() {
                 palette.number
-            } else if "{}()[];:,.!".contains(ch) {
+            } else if matches!(
+                ch,
+                '{' | '}' | '(' | ')' | '[' | ']' | ';' | ':' | ',' | '.' | '!'
+            ) {
                 palette.punctuation
             } else {
                 palette.text
@@ -355,14 +390,11 @@ pub fn draw_buffer(
     } else {
         0
     };
-    if let Some(cursor_row) = display_rows
-        .iter()
-        .position(|&(row, segment)| row == editor.cursor.row && segment == cursor_segment)
-        .filter(|&index| index >= editor.top && index < editor.top + rows)
-    {
+    let cursor_index = editor.display_index(editor.cursor, cols, word_wrap);
+    if let Some(cursor_row) = visible_cursor_row(cursor_index, editor.top, rows) {
         let visible_start = cursor_segment + if word_wrap { 0 } else { editor.left };
         let x = TEXT_X + editor.cursor.col.saturating_sub(visible_start) as f32 * cell_width;
-        let y = TEXT_Y + (cursor_row - editor.top) as f32 * line_height;
+        let y = TEXT_Y + cursor_row as f32 * line_height;
         if editor.mode == Mode::Insert {
             let alpha = 0.65 + 0.35 * (get_time() as f32 * 4.0).sin().abs();
             ui_rectangle(
@@ -631,8 +663,8 @@ pub fn draw_overlay(help: bool, flat_only: bool, font: Option<&Font>, theme: The
             "wheel          zoom",
             "RMB outside pan; F4 unlocks orbit",
             "middle drag    pan",
-            "F2             straight home view",
-            "F4             flat-only / orbit",
+            "F2 home · F5 2D-only on/off",
+            "F4 flat/orbit · F5 2D-only on/off",
             "F3             toggle floor grid",
             "double Enter   toggle word wrap",
             "Ctrl+H / L     scroll horizontally; disables wrap",
@@ -652,7 +684,7 @@ pub fn draw_overlay(help: bool, flat_only: bool, font: Option<&Font>, theme: The
         }
     }
     label(
-        "F1 controls  ·  F4 flat-only/orbit  ·  Ctrl +/- font",
+        "F1 controls  ·  F4 flat/orbit · F5 2D-only · Ctrl +/- font",
         29.0,
         height - 24.0,
         14,
@@ -663,7 +695,14 @@ pub fn draw_overlay(help: bool, flat_only: bool, font: Option<&Font>, theme: The
 
 #[cfg(test)]
 mod tests {
-    use super::{search_highlights, search_prefix};
+    use super::{search_highlights, search_prefix, visible_cursor_row};
+
+    #[test]
+    fn cursor_row_is_relative_to_the_scrolled_viewport() {
+        assert_eq!(visible_cursor_row(12, 10, 5), Some(2));
+        assert_eq!(visible_cursor_row(9, 10, 5), None);
+        assert_eq!(visible_cursor_row(15, 10, 5), None);
+    }
 
     #[test]
     fn search_highlighting_covers_matches_overlapping_the_visible_columns() {

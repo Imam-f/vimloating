@@ -155,6 +155,7 @@ impl Editor {
     }
 
     fn visual_action(&mut self, delete: bool) {
+        self.touch();
         let (a, b) = self.selection();
         self.register.clear();
         if self.visual_linewise {
@@ -207,6 +208,7 @@ impl Editor {
     }
 
     fn line_action(&mut self, delete: bool, n: usize) {
+        self.touch();
         let end = (self.cursor.row + n).min(self.lines.len());
         self.register = self.lines[self.cursor.row..end].to_vec();
         self.linewise = true;
@@ -230,6 +232,7 @@ impl Editor {
             return;
         }
         self.checkpoint();
+        self.touch();
         for _ in 0..n {
             if self.linewise {
                 let row = self.cursor.row + usize::from(!before);
@@ -366,6 +369,7 @@ impl Editor {
             'i' | 'a' | 'I' | 'A' | 'o' | 'O' => self.begin_insert(key),
             'x' => {
                 self.checkpoint();
+                self.touch();
                 let row = self.cursor.row;
                 let end = (self.cursor.col + n).min(self.lines[row].len());
                 self.register = vec![self.lines[row].drain(self.cursor.col..end).collect()];
@@ -375,6 +379,7 @@ impl Editor {
             'X' => {
                 if self.cursor.col > 0 {
                     self.checkpoint();
+                    self.touch();
                     let row = self.cursor.row;
                     let start = self.cursor.col.saturating_sub(n);
                     self.register = vec![self.lines[row].drain(start..self.cursor.col).collect()];
@@ -385,6 +390,7 @@ impl Editor {
             }
             'D' => {
                 self.checkpoint();
+                self.touch();
                 self.register = vec![self.lines[self.cursor.row].split_off(self.cursor.col)];
                 self.linewise = false;
                 self.clamp();

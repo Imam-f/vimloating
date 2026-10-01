@@ -542,6 +542,7 @@ impl Editor {
                 .collect()
         };
         self.checkpoint();
+        self.touch();
         self.lines.splice(row..=row, replacement);
         if self.lines.is_empty() {
             self.lines.push(Vec::new());

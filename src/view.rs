@@ -36,6 +36,23 @@ impl View {
     }
 
     pub fn update(&mut self) {
+        if is_key_pressed(KeyCode::F5) {
+            self.two_d_only = !self.two_d_only;
+        }
+        if is_key_pressed(KeyCode::F4) {
+            if self.two_d_only {
+                self.two_d_only = false;
+                self.flat_only = false;
+            } else {
+                self.flat_only = !self.flat_only;
+            }
+            if self.flat_only {
+                self.yaw = 0.0;
+                self.pitch = 0.0;
+                self.desired_yaw = 0.0;
+                self.desired_pitch = 0.0;
+            }
+        }
         if self.two_d_only {
             self.last_mouse = vec2(mouse_position().0, mouse_position().1);
             return;
@@ -66,15 +83,6 @@ impl View {
             self.desired_yaw = 0.0;
             self.desired_pitch = 0.0;
             self.desired_center = Vec3::ZERO;
-        }
-        if is_key_pressed(KeyCode::F4) {
-            self.flat_only = !self.flat_only;
-            if self.flat_only {
-                self.yaw = 0.0;
-                self.pitch = 0.0;
-                self.desired_yaw = 0.0;
-                self.desired_pitch = 0.0;
-            }
         }
         if self.flat_only {
             self.desired_yaw = 0.0;
