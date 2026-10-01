@@ -33,7 +33,7 @@ Running without a filename opens an editable introduction buffer. Save it under 
 | `F3` | Toggle the perspective floor grid (off at startup) |
 | `F4` | Toggle flat-only mode (on by default); panning remains available |
 
-The text is rendered into an offscreen OpenGL texture sized to the window's physical pixel width and recreated when the viewport or display scale changes. This keeps the text surface aligned with the available display resolution before it is placed on the world-space mesh. Flat-only mode is on by default: it keeps the surface facing you, hides the scene frame and HUD, and still allows panning. The floor grid starts hidden and can be shown with `F3`. Turn flat-only mode off with `F4` to orbit. Wheel zoom is deliberately gentle, and camera motion uses frame-rate-independent exponential smoothing. Mouse positioning uses a ray/plane intersection, so it continues to work when the surface is rotated.
+The text is rendered into an offscreen OpenGL texture at 2× the window's physical pixel width (with a 3200-pixel minimum), recreated when the viewport or display scale changes, then placed on the world-space mesh. The extra sampling headroom keeps text crisp as the surface is zoomed in. Flat-only mode is on by default: it keeps the surface facing you, hides the scene frame and HUD, and still allows panning. The floor grid starts hidden and can be shown with `F3`. Turn flat-only mode off with `F4` to orbit. Wheel zoom is deliberately gentle, and camera motion uses frame-rate-independent exponential smoothing. Mouse positioning uses a ray/plane intersection, so it continues to work when the surface is rotated.
 
 ## Vim controls
 

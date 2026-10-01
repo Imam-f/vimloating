@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 const TEX_W: u32 = 1600;
 const TEX_H: u32 = 1000;
+const MIN_RENDER_WIDTH: u32 = TEX_W * 2;
 const MAX_RENDER_WIDTH: u32 = 8192;
 const BOARD_W: f32 = 12.0;
 const BOARD_H: f32 = 7.5;
@@ -599,9 +600,10 @@ fn board_mesh(texture: Texture2D) -> Mesh {
 }
 
 fn editor_target_dimensions() -> (u32, u32) {
-    let width = (screen_width() * screen_dpi_scale())
+    let viewport_width = screen_width() * screen_dpi_scale();
+    let width = (viewport_width * 2.0)
         .round()
-        .clamp(1.0, MAX_RENDER_WIDTH as f32) as u32;
+        .clamp(MIN_RENDER_WIDTH as f32, MAX_RENDER_WIDTH as f32) as u32;
     let height = (width as f32 * TEX_H as f32 / TEX_W as f32)
         .round()
         .max(1.0) as u32;
