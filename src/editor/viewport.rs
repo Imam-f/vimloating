@@ -423,7 +423,6 @@ impl Editor {
         self.clamp();
     }
 
-    #[allow(dead_code)]
     pub fn scroll_vertical(
         &mut self,
         direction: isize,

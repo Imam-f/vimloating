@@ -54,10 +54,8 @@ pub fn handle_keyboard(
     }
     let scroll_left = ctrl && is_key_pressed(KeyCode::H);
     let scroll_right = ctrl && is_key_pressed(KeyCode::L);
-    let scroll_up = ctrl
-        && (is_key_pressed(KeyCode::Y) || is_key_pressed(KeyCode::U) || is_key_pressed(KeyCode::B));
-    let scroll_down = ctrl
-        && (is_key_pressed(KeyCode::E) || is_key_pressed(KeyCode::D) || is_key_pressed(KeyCode::F));
+    let scroll_up = ctrl && is_key_pressed(KeyCode::Y);
+    let scroll_down = ctrl && is_key_pressed(KeyCode::E);
     if ctrl && !scroll_left && !scroll_right {
         editor.follow_cursor_horizontally();
     }
@@ -211,15 +209,8 @@ pub fn handle_keyboard(
                 *word_wrap,
             );
         } else if scroll_up || scroll_down {
-            let (direction, amount) =
-                if repeated_scroll == Some(KeyCode::E) || is_key_pressed(KeyCode::E) {
-                    (1, 1)
-                } else if repeated_scroll == Some(KeyCode::Y) || is_key_pressed(KeyCode::Y) {
-                    (-1, 1)
-                } else {
-                    (1, 1)
-                };
-            editor.scroll_vertical(direction, amount.max(1), rows, cols, *word_wrap);
+            let direction = if scroll_down { 1 } else { -1 };
+            editor.scroll_vertical(direction, 1, rows, cols, *word_wrap);
         }
         if scroll_left || scroll_right {
             if *word_wrap {

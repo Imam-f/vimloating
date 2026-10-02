@@ -211,11 +211,7 @@ impl Editor {
     }
 
     pub fn find(&mut self, backwards: bool) {
-        self.find_count(backwards, 1);
-    }
-
-    pub(super) fn find_count(&mut self, backwards: bool, count: usize) {
-        self.start_find(backwards, count, true);
+        self.start_find(backwards, 1, true);
     }
 
     pub(super) fn find_repeat(&mut self, backwards: bool, count: usize) {

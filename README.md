@@ -120,7 +120,7 @@ Closing the window also checks for unsaved changes; use `:wq` or `:q!` when need
 
 ## Scope
 
-This is a working single-buffer prototype with a useful subset of Vim controls. It includes lightweight comment/string coloring, character-indexed Unicode editing, a bounded undo history, and UTF-8 file I/O. It does not implement Vim's full operator/motion grammar, plugins, LSP, or multiple floating documents.
+This is a working multi-buffer prototype with a useful subset of Vim controls. It includes lightweight comment/string coloring, character-indexed Unicode editing, a bounded undo history, and UTF-8 file I/O. It does not implement Vim's full operator/motion grammar, plugins, LSP, or multiple floating documents.
 
 Files are normalized to LF line endings when opened. Existing tab characters are preserved and displayed as a single arrow cell. Text uses an installed monospace font (Consolas, Menlo, DejaVu Sans Mono, or Liberation Mono), falling back to Macroquad's built-in font; available glyphs depend on the font.
 
@@ -130,6 +130,10 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 - Folds
 - Command mode shortcut
 - Change (`c`) command
+- Move between block delim
+- Select text block
+- Selection based command mode
+- Visual feedback when yanking
 - Inside/around text objects
 - Insert mode control
 - Upper/lower case
