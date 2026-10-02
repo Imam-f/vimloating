@@ -4,9 +4,28 @@ version = "0.1.0"
 edition = "2024"
 description = "A spatial text editor with Vim bindings and an OpenGL renderer"
 license = "MIT"
+default-run = "vimloating"
+
+[features]
+default = ["graphics"]
+graphics = ["dep:macroquad"]
+tui = ["dep:crossterm", "dep:ratatui", "dep:unicode-width"]
+
+[[bin]]
+name = "vimloating"
+path = "src/main.rs"
+required-features = ["graphics"]
+
+[[bin]]
+name = "vimloating-tui"
+path = "src/bin/vimloating-tui.rs"
+required-features = ["tui"]
 
 [dependencies]
-macroquad = "0.4.14"
+macroquad = { version = "0.4.14", optional = true }
+crossterm = { version = "0.28", optional = true }
+ratatui = { version = "0.29", default-features = false, features = ["crossterm"], optional = true }
+unicode-width = { version = "0.2", optional = true }
 
 [profile.release]
 lto = "thin"

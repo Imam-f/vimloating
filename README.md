@@ -20,6 +20,23 @@ The app runs as a native desktop window on Windows, Linux, and macOS. It needs a
 
 Running without a filename opens an editable introduction buffer. Save it under a name with `:w notes.rs`, or open another file with `:e path`.
 
+## Terminal editor
+
+Run the editor directly in your terminal, with no window or OpenGL dependency:
+
+```sh
+cargo run --release --no-default-features --features tui --bin vimloating-tui
+cargo run --release --no-default-features --features tui --bin vimloating-tui -- notes.rs
+```
+
+Pass a directory to start in the file browser. A missing file opens a new empty buffer. Use `--help` for CLI usage, `F1` for terminal controls, and `:q`, `:q!`, or `:wq` to exit.
+
+The TUI shares the desktop editor's Vim motions, counts, insert/visual modes, undo/redo, live search highlights, character-find hints, buffers, file commands, directory browser, shell commands, themes, and unsaved-change protection. It includes line numbers, syntax colors, wrapping, a status line, and a command/search prompt. Terminal resizing updates the viewport. In shell output, buffer lists, and F1 help, use `j`/`k`, arrows, PageUp/PageDown, or Home/End to scroll; Esc returns to editing.
+
+Use your terminal's paste shortcut in Insert mode. On terminals that report bracketed-paste events, multiline text is inserted literally without interpreting it as editor commands. Windows console paste may arrive as individual keys, with the same auto-indentation as typing. Terminal fonts and clipboard access are managed by the terminal. Some terminals encode Ctrl+H as Backspace and Ctrl+J as Enter, or reserve Ctrl+S; those shortcuts depend on your terminal's settings. In Insert mode, Ctrl+H/I/J/M also handle backspace/tab/newline encodings. The editor uses one cell per Unicode character: tabs display as `→`, while wide, zero-width, and control characters display as `�` to keep cursor positions aligned. Their original contents are preserved when saved.
+
+The `theme` setting in `~/.vimfloating` also applies to the TUI. Both frontends can be built together with `cargo build --release --all-features`.
+
 ## Move through space
 
 | Input | Action |
@@ -125,7 +142,6 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 
 - 3D control with keyboard
 - CLI command
-- TUI mode
 - LSP support
 - Completion
 - Tree-sitter support
@@ -143,6 +159,14 @@ cargo clippy --all-targets -- -D warnings
 cargo build --release
 ```
 
+Verify the standalone terminal build:
+
+```sh
+cargo test --no-default-features --features tui
+cargo clippy --no-default-features --features tui --all-targets -- -D warnings
+cargo build --release --no-default-features --features tui --bin vimloating-tui
+```
+
 For a native OpenGL rendering smoke test, capture a frame and exit:
 
 ```sh
@@ -155,3 +179,5 @@ cargo run -- --screenshot preview.png
 - `src/render.rs`: offscreen editor rendering and 3D scene.
 - `src/input.rs`: keyboard shortcuts and animated vertical movement.
 - `src/main.rs`: app setup and event loop.
+- `src/lib.rs`: shared editor and configuration library.
+- `src/tui.rs` and `src/bin/vimloating-tui.rs`: terminal rendering, input, lifecycle, and CLI.
