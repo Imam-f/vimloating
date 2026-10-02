@@ -129,6 +129,11 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 - LSP support
 - Completion
 - Tree-sitter support
+- Full screen mode
+- Walk around mode
+- Popup mode
+- Full canvas support
+- Arrow/rope connector
 
 ## Development
 
