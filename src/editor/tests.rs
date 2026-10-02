@@ -2,6 +2,33 @@ use super::*;
 use std::fs;
 
 #[test]
+fn replace_supports_unicode_counts_undo_dot_and_insufficient_characters() {
+    let mut e = Editor::new("abcdef", None);
+    for key in "2rλ".chars() {
+        e.normal_key(key);
+    }
+    assert_eq!(e.text(), "λλcdef");
+    assert_eq!(e.cursor.col, 1);
+    e.cursor.col = 3;
+    e.normal_key('.');
+    assert_eq!(e.text(), "λλcλλf");
+    e.undo(false);
+    assert_eq!(e.text(), "λλcdef");
+    e.cursor.col = 5;
+    for key in "2rz".chars() {
+        e.normal_key(key);
+    }
+    assert_eq!(e.text(), "λλcdef");
+    e.normal_key('r');
+    e.escape();
+    assert_eq!(e.pending, None);
+    e.cursor.col = 2;
+    e.normal_key('r');
+    e.normal_key('\n');
+    assert_eq!(e.text(), "λλ\ndef");
+}
+
+#[test]
 fn command_windows_edit_history_without_changing_source_and_can_execute_or_cancel() {
     let mut e = Editor::new("source", None);
     e.normal_key(':');

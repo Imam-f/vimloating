@@ -161,7 +161,7 @@ impl Editor {
         }
     }
 
-    fn remember_normal_change(&mut self, count: usize, keys: &[char]) {
+    pub(super) fn remember_normal_change(&mut self, count: usize, keys: &[char]) {
         if self.replaying_change {
             return;
         }
@@ -374,13 +374,33 @@ impl Editor {
             }
             if matches!(
                 key,
-                'i' | 'a' | 'I' | 'A' | 'o' | 'O' | 'x' | 'D' | 'd' | 'y' | 'v' | 'V' | 'p' | 'P'
+                'i' | 'a'
+                    | 'I'
+                    | 'A'
+                    | 'o'
+                    | 'O'
+                    | 'x'
+                    | 'D'
+                    | 'd'
+                    | 'y'
+                    | 'v'
+                    | 'V'
+                    | 'p'
+                    | 'P'
+                    | 'r'
             ) {
                 self.message = "Directory listing is read-only · Enter opens entries".into();
                 self.pending = None;
                 self.count.clear();
                 return;
             }
+        }
+        if self.pending == Some('r') {
+            let n = self.count.parse::<usize>().unwrap_or(1).clamp(1, 10000);
+            self.pending = None;
+            self.count.clear();
+            self.replace_char(key, n);
+            return;
         }
         if let Some(motion @ ('f' | 'F' | 't' | 'T')) = self.pending {
             let n = self.count.parse::<usize>().unwrap_or(1).clamp(1, 10000);
@@ -472,7 +492,7 @@ impl Editor {
                 };
                 self.clamp();
             }
-            'g' | 'd' | 'y' | 'z' | 'm' | '\'' | '`' | 'q' => {
+            'g' | 'd' | 'y' | 'z' | 'm' | '\'' | '`' | 'q' | 'r' => {
                 self.pending = Some(key);
                 return;
             }

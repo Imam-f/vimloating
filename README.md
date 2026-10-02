@@ -60,6 +60,7 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `I` / `A` | Insert at first nonblank / line end |
 | `o` / `O` | Open a line below / above, preserving indentation |
 | `x` / `X` / `D` | Delete under cursor / before cursor / to end of line |
+| `r{char}` | Replace characters under the cursor (with counts) or throughout a Visual selection; Enter replaces with a line break |
 | `dd` / `yy` | Delete / yank a line |
 | `p` / `P` | Paste after / before from the internal register |
 | `v` / `V`, then movement | Select characters / whole lines |
@@ -161,6 +162,7 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 - Indentation folds (replaceable fold provider for future Tree-sitter support)
 - Ctrl+N / Ctrl+P line movement and command/search history
 - Command mode shortcuts: Ctrl+C, q:, q/
+- Replace with r
 
 ## Development
 

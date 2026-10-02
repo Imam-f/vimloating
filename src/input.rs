@@ -92,6 +92,16 @@ pub fn handle_keyboard(
         editor.control_key('c');
         return;
     }
+    if matches!(editor.mode, Mode::Normal | Mode::Visual) && editor.pending == Some('r') {
+        if is_key_pressed(KeyCode::Enter) {
+            editor.normal_key('\n');
+            return;
+        }
+        if is_key_pressed(KeyCode::Tab) {
+            editor.normal_key('\t');
+            return;
+        }
+    }
     if matches!(editor.mode, Mode::ShellOutput | Mode::BufferList) {
         return;
     }
