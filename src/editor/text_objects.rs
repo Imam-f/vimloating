@@ -305,6 +305,7 @@ impl Editor {
             self.cursor = chars[end - 1].0;
             self.mode = Mode::Visual;
             self.visual_linewise = object == 'p';
+            self.visual_blockwise = false;
             self.preferred_col = None;
             self.clamp();
         } else {

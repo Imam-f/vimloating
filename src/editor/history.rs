@@ -3,6 +3,23 @@ use super::{Editor, Mode};
 impl Editor {
     pub fn control_key(&mut self, key: char) {
         match (self.mode, key) {
+            (Mode::Normal | Mode::Visual, 'v') => {
+                if self.is_directory_browser() {
+                    return;
+                }
+                if self.mode == Mode::Visual && self.visual_blockwise {
+                    self.escape();
+                } else {
+                    if self.mode != Mode::Visual {
+                        self.anchor = self.cursor;
+                    }
+                    self.mode = Mode::Visual;
+                    self.visual_linewise = false;
+                    self.visual_blockwise = true;
+                    self.pending = None;
+                    self.count.clear();
+                }
+            }
             (Mode::CommandWindow, 'c') => self.finish_command_window(false),
             (_, 'c') => self.escape(),
             (Mode::Normal | Mode::Visual, 'n' | 'p') => {

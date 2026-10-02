@@ -14,12 +14,16 @@ impl Editor {
             let (a, b) = self.selection();
             for row in a.row..=b.row {
                 let len = self.lines[row].len();
-                let start = if self.visual_linewise || row != a.row {
+                let start = if self.visual_blockwise {
+                    a.col.min(len)
+                } else if self.visual_linewise || row != a.row {
                     0
                 } else {
                     a.col.min(len)
                 };
-                let end = if self.visual_linewise || row != b.row {
+                let end = if self.visual_blockwise {
+                    (b.col + 1).min(len)
+                } else if self.visual_linewise || row != b.row {
                     len
                 } else {
                     (b.col + 1).min(len)

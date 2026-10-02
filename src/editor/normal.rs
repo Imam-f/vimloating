@@ -206,11 +206,13 @@ impl Editor {
                 }
                 RepeatChange::VisualDelete {
                     linewise,
+                    blockwise,
                     row_delta,
                     col_delta,
                 } => {
                     self.mode = Mode::Visual;
                     self.visual_linewise = *linewise;
+                    self.visual_blockwise = *blockwise;
                     self.anchor = self.cursor;
                     self.cursor.row = self
                         .cursor
@@ -252,11 +254,17 @@ impl Editor {
         if delete && !self.replaying_change {
             self.last_change = Some(RepeatChange::VisualDelete {
                 linewise: self.visual_linewise,
+                blockwise: self.visual_blockwise,
                 row_delta: b.row - a.row,
                 col_delta: b.col as isize - a.col as isize,
             });
         }
+        if self.visual_blockwise {
+            self.block_action(delete);
+            return;
+        }
         self.register.clear();
+        self.register_block_width = None;
         if self.visual_linewise {
             self.register
                 .extend(self.lines[a.row..=b.row].iter().cloned());
@@ -316,6 +324,7 @@ impl Editor {
             self.blink_yank(ranges, true);
         }
         self.register = self.lines[self.cursor.row..end].to_vec();
+        self.register_block_width = None;
         self.linewise = true;
         if delete {
             self.checkpoint();
@@ -338,6 +347,11 @@ impl Editor {
         }
         self.checkpoint();
         self.touch();
+        if let Some(width) = self.register_block_width {
+            self.paste_block(before, n, width);
+            self.clamp();
+            return;
+        }
         for _ in 0..n {
             if self.linewise {
                 let row = self.cursor.row + usize::from(!before);
@@ -538,6 +552,7 @@ impl Editor {
             }
             'i' | 'a' | 'I' | 'A' | 'o' | 'O' => self.begin_insert(key),
             'x' => {
+                self.register_block_width = None;
                 self.remember_normal_change(n, &['x']);
                 self.checkpoint();
                 self.touch();
@@ -548,6 +563,7 @@ impl Editor {
                 self.clamp();
             }
             'X' => {
+                self.register_block_width = None;
                 if self.cursor.col > 0 {
                     self.remember_normal_change(n, &['X']);
                     self.checkpoint();
@@ -561,6 +577,7 @@ impl Editor {
                 }
             }
             'D' => {
+                self.register_block_width = None;
                 self.remember_normal_change(n, &['D']);
                 self.checkpoint();
                 self.touch();
@@ -580,12 +597,13 @@ impl Editor {
                 }
             }
             'v' => {
-                if self.mode == Mode::Visual && !self.visual_linewise {
+                if self.mode == Mode::Visual && !self.visual_linewise && !self.visual_blockwise {
                     self.escape();
                 } else {
                     self.mode = Mode::Visual;
                     self.anchor = self.cursor;
                     self.visual_linewise = false;
+                    self.visual_blockwise = false;
                 }
             }
             'V' => {
@@ -595,6 +613,7 @@ impl Editor {
                     self.mode = Mode::Visual;
                     self.anchor = self.cursor;
                     self.visual_linewise = true;
+                    self.visual_blockwise = false;
                 }
             }
             ':' | '/' | '?' => {

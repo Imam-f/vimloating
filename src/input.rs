@@ -110,6 +110,11 @@ pub fn handle_keyboard(
         return;
     }
     if ctrl {
+        if is_key_pressed(KeyCode::V) && matches!(editor.mode, Mode::Normal | Mode::Visual) {
+            *vertical_motion = None;
+            editor.control_key('v');
+            return;
+        }
         if is_key_pressed(KeyCode::N) || is_key_pressed(KeyCode::P) {
             *vertical_motion = None;
             editor.control_key(if is_key_pressed(KeyCode::N) { 'n' } else { 'p' });

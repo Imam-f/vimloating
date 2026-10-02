@@ -343,8 +343,23 @@ pub fn draw_buffer(
                 quoted = !quoted;
             }
         }
-        let selection =
-            (editor.mode == Mode::Visual && !editor.visual_linewise).then(|| editor.selection());
+        if editor.mode == Mode::Visual && editor.visual_blockwise {
+            let (a, b) = editor.selection();
+            if a.row <= row && row <= b.row {
+                let start = a.col.max(visible_start);
+                let end = (b.col + 1).min(visible_start + cols);
+                if start < end {
+                    ui_rectangle(
+                        TEXT_X + (start - visible_start) as f32 * cell_width,
+                        y,
+                        (end - start) as f32 * cell_width,
+                        line_height - 1.0,
+                        palette.selection,
+                        scale,
+                    );
+                }
+            }
+        }
         for col in visible_start..visible_end {
             let ch = line[col];
             if ch == '"' {
@@ -366,10 +381,7 @@ pub fn draw_buffer(
             if is_find_hint || is_find_target {
                 ui_rectangle(x, y, cell_width, line_height - 1.0, palette.search, scale);
             }
-            if let Some((a, b)) = selection
-                && a <= position
-                && position <= b
-            {
+            if editor.selected_cell(position) && !editor.visual_linewise {
                 ui_rectangle(
                     x,
                     y,
@@ -533,7 +545,9 @@ pub fn draw_buffer(
         mode_color(editor.mode, palette),
         scale,
     );
-    let mode_label = if editor.mode == Mode::Visual && editor.visual_linewise {
+    let mode_label = if editor.mode == Mode::Visual && editor.visual_blockwise {
+        "VISUAL BLOCK"
+    } else if editor.mode == Mode::Visual && editor.visual_linewise {
         "VISUAL LINE"
     } else {
         mode_name(editor.mode)

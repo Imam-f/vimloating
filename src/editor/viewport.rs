@@ -214,10 +214,11 @@ impl Editor {
                 rows.push((row, 0));
                 continue;
             }
-            if !wrap || line.is_empty() {
+            let len = self.display_line_length(row);
+            if !wrap || len == 0 {
                 rows.push((row, 0));
             } else {
-                for start in (0..line.len()).step_by(cols) {
+                for start in (0..len).step_by(cols) {
                     rows.push((row, start));
                 }
                 if self.mode == super::Mode::Insert && line.len().is_multiple_of(cols) {
@@ -235,21 +236,34 @@ impl Editor {
         if self.folded_range(row).is_some() {
             return 1;
         }
-        let line = &self.lines[row];
-        if !wrap || line.is_empty() {
+        let len = self.display_line_length(row);
+        if !wrap || len == 0 {
             1
         } else {
-            let mut count = line.len().div_ceil(cols);
-            if insert_mode && line.len().is_multiple_of(cols) {
+            let mut count = len.div_ceil(cols);
+            if insert_mode && len.is_multiple_of(cols) {
                 count += 1;
             }
             count
         }
     }
 
+    fn display_line_length(&self, row: usize) -> usize {
+        let len = self.lines[row].len();
+        if self.mode == super::Mode::Visual && self.visual_blockwise {
+            let (a, b) = self.selection();
+            if a.row <= row && row <= b.row {
+                return len.max(b.col + 1);
+            }
+        }
+        len
+    }
+
     fn ensure_display(&self, cols: usize, wrap: bool) {
         let cols = cols.max(1);
         let insert_mode = self.mode == super::Mode::Insert;
+        let block_selection =
+            (self.mode == super::Mode::Visual && self.visual_blockwise).then(|| self.selection());
         {
             let cache = self.display_cache.borrow();
             if cache.revision == self.structural_revision
@@ -257,6 +271,7 @@ impl Editor {
                 && cache.wrap == wrap
                 && cache.insert_mode == insert_mode
                 && cache.line_count == self.lines.len()
+                && cache.block_selection == block_selection
             {
                 return;
             }
@@ -274,6 +289,7 @@ impl Editor {
             wrap,
             insert_mode,
             line_count: self.lines.len(),
+            block_selection,
             starts,
         };
     }
@@ -335,10 +351,9 @@ impl Editor {
             .saturating_sub(1);
         let mut segment = top - cache.starts[row];
         while out.len() < count && row < self.lines.len() {
-            let line = &self.lines[row];
             let segments = self.line_segment_count(row, cols, wrap, insert_mode);
             while segment < segments && out.len() < count {
-                let start = if !wrap || line.is_empty() {
+                let start = if !wrap || self.display_line_length(row) == 0 {
                     0
                 } else {
                     segment * cols

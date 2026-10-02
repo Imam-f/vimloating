@@ -2,6 +2,7 @@ use crate::config::Theme;
 use std::cell::RefCell;
 use std::path::PathBuf;
 
+mod block;
 pub mod buffers;
 mod delimiters;
 mod editing;
@@ -77,6 +78,7 @@ enum RepeatChange {
     Number(i128),
     VisualDelete {
         linewise: bool,
+        blockwise: bool,
         row_delta: usize,
         col_delta: isize,
     },
@@ -88,6 +90,7 @@ struct DisplayCache {
     wrap: bool,
     insert_mode: bool,
     line_count: usize,
+    block_selection: Option<(Pos, Pos)>,
     /// Absolute display row index where each source line begins; one extra sentinel
     /// entry holds the total display row count.
     starts: Vec<usize>,
@@ -118,6 +121,7 @@ pub struct Editor {
     pub mode: Mode,
     pub anchor: Pos,
     pub visual_linewise: bool,
+    pub visual_blockwise: bool,
     pub path: Option<PathBuf>,
     pub message: String,
     pub prompt: String,
@@ -151,6 +155,7 @@ pub struct Editor {
     saved: String,
     register: Vec<Vec<char>>,
     linewise: bool,
+    register_block_width: Option<usize>,
     preferred_col: Option<usize>,
     last_char_find: Option<CharFind>,
     last_change: Option<RepeatChange>,
@@ -172,6 +177,7 @@ impl Editor {
             mode: Mode::Normal,
             anchor: Pos::default(),
             visual_linewise: false,
+            visual_blockwise: false,
             path,
             message: "Ready · :help for controls".into(),
             prompt: String::new(),
@@ -205,6 +211,7 @@ impl Editor {
             saved: text,
             register: vec![],
             linewise: true,
+            register_block_width: None,
             preferred_col: None,
             last_char_find: None,
             last_change: None,
@@ -220,6 +227,7 @@ impl Editor {
                 wrap: false,
                 insert_mode: false,
                 line_count: 0,
+                block_selection: None,
                 starts: Vec::new(),
             }),
         }
@@ -308,7 +316,9 @@ impl Editor {
         } else {
             len.saturating_sub(1)
         };
-        self.cursor.col = self.cursor.col.min(max);
+        if !(self.mode == Mode::Visual && self.visual_blockwise) {
+            self.cursor.col = self.cursor.col.min(max);
+        }
     }
 
     pub fn escape(&mut self) {
@@ -329,6 +339,7 @@ impl Editor {
         }
         self.mode = Mode::Normal;
         self.visual_linewise = false;
+        self.visual_blockwise = false;
         self.pending = None;
         self.count.clear();
         self.prompt.clear();
@@ -393,7 +404,33 @@ impl Editor {
     }
 
     pub fn selection(&self) -> (Pos, Pos) {
+        if self.visual_blockwise {
+            return (
+                Pos {
+                    row: self.anchor.row.min(self.cursor.row),
+                    col: self.anchor.col.min(self.cursor.col),
+                },
+                Pos {
+                    row: self.anchor.row.max(self.cursor.row),
+                    col: self.anchor.col.max(self.cursor.col),
+                },
+            );
+        }
         (self.anchor.min(self.cursor), self.anchor.max(self.cursor))
+    }
+
+    pub fn selected_cell(&self, pos: Pos) -> bool {
+        if self.mode != Mode::Visual {
+            return false;
+        }
+        let (a, b) = self.selection();
+        if self.visual_blockwise {
+            a.row <= pos.row && pos.row <= b.row && a.col <= pos.col && pos.col <= b.col
+        } else if self.visual_linewise {
+            a.row <= pos.row && pos.row <= b.row
+        } else {
+            a <= pos && pos <= b
+        }
     }
 
     pub fn is_directory_browser(&self) -> bool {
