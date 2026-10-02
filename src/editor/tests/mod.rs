@@ -1,0 +1,13 @@
+mod block;
+mod buffers;
+mod case;
+mod commands;
+mod editing;
+mod files;
+mod folds;
+mod history;
+mod motions;
+mod search;
+mod text_objects;
+mod viewport;
+mod visual;
