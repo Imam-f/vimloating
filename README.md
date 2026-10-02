@@ -65,6 +65,10 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `dd` / `yy` | Delete / yank a line |
 | `p` / `P` | Paste after / before from the internal register |
 | `v` / `V`, then movement | Select characters / whole lines |
+| `iw` / `aw`, `iW` / `aW` in Visual mode | Select inner / around a word or whitespace-separated WORD; counts select several words |
+| `ib` / `ab`, `iB` / `aB`, `i[` / `a[`, `i<` / `a<` in Visual mode | Select inner / around (), {}, [] or <> blocks; repeats expand to enclosing blocks |
+| `i"` / `a"`, `i'` / `a'`, `` i` `` / `` a` ``, `it` / `at` in Visual mode | Select inner / around quotes or nested tags |
+| `ip` / `ap`, `is` / `as` in Visual mode | Select inner / around a paragraph or sentence |
 | `Ctrl+A` / `Ctrl+X` in Normal mode | Increment / decrement the decimal number at or after the cursor |
 | `o` in Visual mode | Switch the active end of the selection |
 | `d` / `x` / `y` in Visual mode | Delete / delete / yank the selection; line selections paste as lines |
@@ -133,10 +137,8 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 ## TODO
 
 - Change (`c`) command
-- Select text block
 - Selection based command mode
 - Visual feedback when yanking
-- Inside/around text objects
 - Insert mode control
 - Upper/lower case
 - Next/Prev word under cursor
@@ -164,6 +166,7 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 - Command mode shortcuts: Ctrl+C, q:, q/
 - Replace with r
 - Move between block delimiters with %
+- Select text blocks with inner/around Visual text objects
 
 ## Development
 

@@ -10,6 +10,7 @@ pub mod folds;
 mod history;
 mod normal;
 mod replace;
+mod text_objects;
 mod viewport;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]

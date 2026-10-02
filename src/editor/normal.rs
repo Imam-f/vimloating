@@ -424,6 +424,10 @@ impl Editor {
         let n = self.count.parse::<usize>().unwrap_or(1).clamp(1, 10000);
         if let Some(pending) = self.pending.take() {
             self.count.clear();
+            if self.mode == Mode::Visual && matches!(pending, 'i' | 'a') {
+                self.select_text_object(key, pending == 'a', n);
+                return;
+            }
             if pending == 'q' {
                 if matches!(key, ':' | '/') {
                     self.open_command_window(key == '/');
@@ -502,6 +506,10 @@ impl Editor {
             'f' | 't' | 'F' | 'T' => {
                 self.pending = Some(key);
                 self.char_find_hints = self.word_find_hints(matches!(key, 'F' | 'T'));
+                return;
+            }
+            'i' | 'a' if self.mode == Mode::Visual => {
+                self.pending = Some(key);
                 return;
             }
             'i' | 'a' | 'I' | 'A' | 'o' | 'O' => self.begin_insert(key),
