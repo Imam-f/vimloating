@@ -73,7 +73,8 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `zc` / `zo` / `za` / `zM` / `zR` | Close / open / toggle an indentation fold / close all / open all; edits open folds |
 | `u` / `Ctrl+R` | Undo / redo |
 | `.` | Repeat the last change |
-| `Ctrl+C` | Return to Normal from any mode (same as `Esc`) |
+| `Ctrl+C` | Return to Normal; from a history window, transfer its selected line to the prompt |
+| `q:` / `q/` | Edit command / search history with Vim keys; Enter executes the selected line, Ctrl+C transfers it to the prompt, Esc closes |
 | `/pattern` / `?pattern`, `Enter` | Search forward / backward with live highlights and wraparound |
 | `n` / `N` | Repeat in the last search direction / opposite direction |
 | `Ctrl+6` | Toggle to the last active buffer |
@@ -129,7 +130,6 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 
 ## TODO
 
-- Command mode shortcut (Ctrl+C, q:, q/)
 - Change (`c`) command
 - Move between block delim
 - Select text block
@@ -160,6 +160,7 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 - Marks (buffer-local letter marks)
 - Indentation folds (replaceable fold provider for future Tree-sitter support)
 - Ctrl+N / Ctrl+P line movement and command/search history
+- Command mode shortcuts: Ctrl+C, q:, q/
 
 ## Development
 

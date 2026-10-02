@@ -22,6 +22,7 @@ pub enum Mode {
     Insert,
     Visual,
     Command,
+    CommandWindow,
     Search,
     ShellOutput,
     BufferList,
@@ -136,6 +137,8 @@ pub struct Editor {
     search_history: Vec<String>,
     history_cursor: Option<usize>,
     history_draft: String,
+    pub command_window: Option<Box<Editor>>,
+    command_window_search: bool,
     pub quit: bool,
     pub force_quit: bool,
     undo: Vec<Snapshot>,
@@ -187,6 +190,8 @@ impl Editor {
             search_history: Vec::new(),
             history_cursor: None,
             history_draft: String::new(),
+            command_window: None,
+            command_window_search: false,
             quit: false,
             force_quit: false,
             undo: vec![],
@@ -300,6 +305,7 @@ impl Editor {
     }
 
     pub fn escape(&mut self) {
+        self.command_window = None;
         self.horizontal_scroll_hold = false;
         if !self.replaying_change
             && let Some((entry, actions)) = self.insert_recording.take()

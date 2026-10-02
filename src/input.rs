@@ -36,6 +36,29 @@ pub fn handle_keyboard(
     vertical_motion: &mut Option<VerticalMotion>,
     scroll_repeat: &mut Option<ScrollRepeat>,
 ) {
+    if editor.mode == Mode::CommandWindow {
+        let ctrl = is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl);
+        if is_key_pressed(KeyCode::Escape)
+            || (ctrl && is_key_pressed(KeyCode::C))
+            || is_key_pressed(KeyCode::Enter)
+        {
+            *vertical_motion = None;
+            while get_char_pressed().is_some() {}
+            if is_key_pressed(KeyCode::Escape) {
+                editor.escape();
+            } else if ctrl && is_key_pressed(KeyCode::C) {
+                editor.control_key('c');
+            } else {
+                editor.finish_command_window(true);
+            }
+        } else if let Some(window) = editor.command_window.as_mut() {
+            handle_keyboard(window, font_size, word_wrap, vertical_motion, scroll_repeat);
+            if window.quit {
+                editor.escape();
+            }
+        }
+        return;
+    }
     let mut chars = Vec::new();
     while let Some(ch) = get_char_pressed() {
         chars.push(ch);
@@ -62,6 +85,11 @@ pub fn handle_keyboard(
     if is_key_pressed(KeyCode::Escape) {
         *vertical_motion = None;
         editor.escape();
+        return;
+    }
+    if ctrl && is_key_pressed(KeyCode::C) {
+        *vertical_motion = None;
+        editor.control_key('c');
         return;
     }
     if matches!(editor.mode, Mode::ShellOutput | Mode::BufferList) {
@@ -225,9 +253,6 @@ pub fn handle_keyboard(
             }
             editor.scroll_horizontal(if scroll_left { -1 } else { 1 }, text_grid(*font_size).1);
         }
-        if is_key_pressed(KeyCode::C) {
-            editor.escape();
-        }
         return;
     }
     let alt = is_key_down(KeyCode::LeftAlt) || is_key_down(KeyCode::RightAlt);
@@ -317,7 +342,7 @@ pub fn handle_keyboard(
                     editor.normal_key(ch);
                 }
             }
-            Mode::ShellOutput | Mode::BufferList => {}
+            Mode::ShellOutput | Mode::BufferList | Mode::CommandWindow => {}
         }
     }
     if is_key_pressed(KeyCode::Enter)

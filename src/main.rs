@@ -103,7 +103,12 @@ async fn main() {
             &mut scroll_repeat,
         );
         editor.advance_search();
-        advance_vertical_motion(editor, &mut vertical_motion);
+        if let Some(window) = editor.command_window.as_mut() {
+            window.advance_search();
+            advance_vertical_motion(window, &mut vertical_motion);
+        } else {
+            advance_vertical_motion(editor, &mut vertical_motion);
+        }
         if editor.mode == Mode::Insert {
             let now = get_time();
             if mode_before_keys != Mode::Insert || input_activity {
@@ -141,10 +146,17 @@ async fn main() {
         }
 
         let (visible_rows, visible_cols, cell_width, line_height) = render::text_grid(font_size);
+        if let Some(window) = editor.command_window.as_mut() {
+            window.reveal_cursor(visible_rows, visible_cols, word_wrap);
+        }
         if is_mouse_button_pressed(MouseButton::Left)
             && !matches!(
                 editor.mode,
-                Mode::Command | Mode::Search | Mode::ShellOutput | Mode::BufferList
+                Mode::Command
+                    | Mode::CommandWindow
+                    | Mode::Search
+                    | Mode::ShellOutput
+                    | Mode::BufferList
             )
             && let Some(point) = view.pick()
             && point.x >= TEXT_X

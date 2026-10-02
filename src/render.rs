@@ -84,7 +84,11 @@ fn mode_color(mode: Mode, palette: ThemePalette) -> Color {
     match mode {
         Mode::Insert => palette.insert,
         Mode::Visual => palette.visual,
-        Mode::Command | Mode::Search | Mode::ShellOutput | Mode::BufferList => palette.command,
+        Mode::Command
+        | Mode::CommandWindow
+        | Mode::Search
+        | Mode::ShellOutput
+        | Mode::BufferList => palette.command,
         Mode::Normal => palette.accent,
     }
 }
@@ -95,6 +99,7 @@ fn mode_name(mode: Mode) -> &'static str {
         Mode::Insert => "INSERT",
         Mode::Visual => "VISUAL",
         Mode::Command => "COMMAND",
+        Mode::CommandWindow => "HISTORY",
         Mode::Search => "SEARCH",
         Mode::ShellOutput => "SHELL",
         Mode::BufferList => "BUFFERS",
@@ -211,6 +216,10 @@ pub fn draw_buffer(
     word_wrap: bool,
     scale: f32,
 ) {
+    if let Some(window) = &editor.command_window {
+        draw_buffer(window, target, font, font_size, word_wrap, scale);
+        return;
+    }
     let palette = editor.theme.palette();
     set_camera(&Camera2D {
         render_target: Some(target.clone()),

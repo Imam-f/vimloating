@@ -404,6 +404,12 @@ impl Editor {
         let n = self.count.parse::<usize>().unwrap_or(1).clamp(1, 10000);
         if let Some(pending) = self.pending.take() {
             self.count.clear();
+            if pending == 'q' {
+                if matches!(key, ':' | '/') {
+                    self.open_command_window(key == '/');
+                }
+                return;
+            }
             if pending == 'z' {
                 self.fold_command(key);
                 return;
@@ -466,7 +472,7 @@ impl Editor {
                 };
                 self.clamp();
             }
-            'g' | 'd' | 'y' | 'z' | 'm' | '\'' | '`' => {
+            'g' | 'd' | 'y' | 'z' | 'm' | '\'' | '`' | 'q' => {
                 self.pending = Some(key);
                 return;
             }

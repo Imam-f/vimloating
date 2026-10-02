@@ -3,6 +3,8 @@ use super::{Editor, Mode};
 impl Editor {
     pub fn control_key(&mut self, key: char) {
         match (self.mode, key) {
+            (Mode::CommandWindow, 'c') => self.finish_command_window(false),
+            (_, 'c') => self.escape(),
             (Mode::Normal | Mode::Visual, 'n' | 'p') => {
                 let n = self.count.parse::<usize>().unwrap_or(1).clamp(1, 10000);
                 self.count.clear();
@@ -11,6 +13,42 @@ impl Editor {
             }
             (Mode::Command | Mode::Search, 'n' | 'p') => self.browse_history(key == 'p'),
             _ => {}
+        }
+    }
+
+    pub(super) fn open_command_window(&mut self, searching: bool) {
+        let history = if searching {
+            &self.search_history
+        } else {
+            &self.command_history
+        };
+        let text = format!("{}\n", history.join("\n"));
+        let mut window = Editor::new(&text, None);
+        window.cursor.row = window.lines.len() - 1;
+        window.theme = self.theme;
+        window.message =
+            "Command history · i to edit · Enter to execute · Ctrl+C to prompt · Esc to close"
+                .into();
+        self.command_window = Some(Box::new(window));
+        self.command_window_search = searching;
+        self.mode = Mode::CommandWindow;
+    }
+
+    pub fn finish_command_window(&mut self, execute: bool) {
+        let Some(window) = self.command_window.take() else {
+            return;
+        };
+        let prompt = window.lines[window.cursor.row].iter().collect::<String>();
+        self.mode = if self.command_window_search {
+            Mode::Search
+        } else {
+            Mode::Command
+        };
+        self.search_prompt_backwards = false;
+        self.prompt = prompt;
+        self.history_cursor = None;
+        if execute {
+            self.submit_prompt();
         }
     }
 
