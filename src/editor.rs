@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 mod block;
 pub mod buffers;
+mod case;
 mod delimiters;
 mod editing;
 mod files;
@@ -76,6 +77,13 @@ enum RepeatChange {
     Indent(bool),
     MoveLine(isize),
     Number(i128),
+    VisualCase {
+        linewise: bool,
+        blockwise: bool,
+        row_delta: usize,
+        col_delta: isize,
+        operation: case::CaseChange,
+    },
     VisualDelete {
         linewise: bool,
         blockwise: bool,

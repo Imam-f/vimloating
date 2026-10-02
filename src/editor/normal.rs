@@ -204,6 +204,22 @@ impl Editor {
                 RepeatChange::Number(delta) => {
                     self.adjust_number(*delta);
                 }
+                RepeatChange::VisualCase {
+                    linewise,
+                    blockwise,
+                    row_delta,
+                    col_delta,
+                    operation,
+                } => {
+                    self.mode = Mode::Visual;
+                    self.visual_linewise = *linewise;
+                    self.visual_blockwise = *blockwise;
+                    self.anchor = self.cursor;
+                    self.cursor.row = (self.cursor.row + row_delta).min(self.lines.len() - 1);
+                    self.cursor.col = self.cursor.col.saturating_add_signed(*col_delta);
+                    self.clamp();
+                    self.change_case(*operation, 1, false);
+                }
                 RepeatChange::VisualDelete {
                     linewise,
                     blockwise,
@@ -462,6 +478,23 @@ impl Editor {
         let n = self.count.parse::<usize>().unwrap_or(1).clamp(1, 10000);
         if let Some(pending) = self.pending.take() {
             self.count.clear();
+            if pending == 'g' && key == '~' {
+                if self.mode == Mode::Visual {
+                    self.change_case(super::case::CaseChange::Toggle, n, false);
+                } else {
+                    self.pending = Some('~');
+                    if n > 1 {
+                        self.count = n.to_string();
+                    }
+                }
+                return;
+            }
+            if pending == '~' {
+                if key == '~' {
+                    self.change_case(super::case::CaseChange::Toggle, n, true);
+                }
+                return;
+            }
             if self.mode == Mode::Visual && matches!(pending, 'i' | 'a') {
                 self.select_text_object(key, pending == 'a', n);
                 return;
@@ -505,6 +538,7 @@ impl Editor {
             return;
         }
         match key {
+            '~' => self.change_case(super::case::CaseChange::Toggle, n, false),
             '%' => self.matching_delimiter(),
             'h' => self.move_by(-1, 0, n),
             'j' => self.move_by(0, 1, n),
