@@ -18,6 +18,12 @@ impl YankHighlight {
 }
 
 impl Editor {
+    pub fn yank_blink_active(&self) -> bool {
+        self.yank_highlight
+            .as_ref()
+            .is_some_and(|highlight| highlight.started.elapsed().as_secs_f64() < 0.6)
+    }
+
     pub(super) fn blink_yank(&mut self, ranges: Vec<(usize, Range<usize>)>, linewise: bool) {
         self.yank_highlight = Some(YankHighlight {
             ranges,

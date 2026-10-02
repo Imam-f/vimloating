@@ -1,5 +1,3 @@
-mod config;
-mod editor;
 mod input;
 mod render;
 mod view;
@@ -11,6 +9,7 @@ use input::{ScrollRepeat, VerticalMotion, advance_vertical_motion, handle_keyboa
 use macroquad::prelude::*;
 use std::path::PathBuf;
 use view::View;
+use vimloating::{config, editor};
 
 #[macroquad::main(window_conf)]
 async fn main() {

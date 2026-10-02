@@ -1,4 +1,24 @@
-use macroquad::prelude::{Color, Conf};
+#[cfg(feature = "graphics")]
+pub use macroquad::prelude::Color;
+#[cfg(feature = "graphics")]
+use macroquad::prelude::Conf;
+
+/// RGBA theme color for builds without the graphics backend.
+#[cfg(not(feature = "graphics"))]
+#[derive(Clone, Copy)]
+pub struct Color {
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
+}
+
+#[cfg(not(feature = "graphics"))]
+impl Color {
+    pub const fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
+        Self { r, g, b, a }
+    }
+}
 
 pub const TEX_W: u32 = 1600;
 pub const TEX_H: u32 = 1000;
@@ -257,6 +277,7 @@ fn parse_user_config(contents: &str) -> UserConfig {
     settings
 }
 
+#[cfg(feature = "graphics")]
 pub fn window_conf() -> Conf {
     Conf {
         window_title: "vimloating".into(),
