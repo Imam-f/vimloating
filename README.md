@@ -85,7 +85,7 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `u` / `Ctrl+R` | Undo / redo |
 | `.` | Repeat the last change |
 | `Ctrl+C` | Return to Normal; from a history window, transfer its selected line to the prompt |
-| `q:` / `q/` | Edit command / search history with Vim keys; Enter executes the selected line, Ctrl+C transfers it to the prompt, Esc closes |
+| `q:` / `q/` (also `q\`) inside Command mode | Edit command / search history with Vim keys after entering `:`; Enter executes the selected line, Ctrl+C transfers it to the prompt, Esc closes |
 | `/pattern` / `?pattern`, `Enter` | Search forward / backward with live highlights and wraparound |
 | `n` / `N` | Repeat in the last search direction / opposite direction |
 | `*` / `#` | Search forward / backward for the complete word under or after the cursor; counts and n/N repeat with wraparound |

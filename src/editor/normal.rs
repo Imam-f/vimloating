@@ -521,12 +521,6 @@ impl Editor {
                 self.select_text_object(key, pending == 'a', n);
                 return;
             }
-            if pending == 'q' {
-                if matches!(key, ':' | '/') {
-                    self.open_command_window(key == '/');
-                }
-                return;
-            }
             if pending == 'z' {
                 self.fold_command(key);
                 return;
@@ -597,7 +591,7 @@ impl Editor {
                 self.count.clear();
                 return;
             }
-            'g' | 'z' | 'm' | '\'' | '`' | 'q' | 'r' => {
+            'g' | 'z' | 'm' | '\'' | '`' | 'r' => {
                 self.pending = Some(key);
                 return;
             }

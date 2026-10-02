@@ -363,6 +363,10 @@ pub fn handle_keyboard(
             Mode::ShellOutput | Mode::BufferList | Mode::CommandWindow => {}
         }
     }
+    if editor.mode == Mode::CommandWindow {
+        *vertical_motion = None;
+        return;
+    }
     if is_key_pressed(KeyCode::Enter)
         && editor.mode == Mode::Normal
         && editor.is_directory_browser()

@@ -124,5 +124,16 @@ impl Editor {
         }
         self.history_cursor = None;
         self.completion_cycle = None;
+        if character.is_some() && self.mode == Mode::Command {
+            let searching = match self.prompt.as_str() {
+                "q:" => Some(false),
+                "q/" | "q\\" => Some(true),
+                _ => None,
+            };
+            if let Some(searching) = searching {
+                self.prompt.clear();
+                self.open_command_window(searching);
+            }
+        }
     }
 }
