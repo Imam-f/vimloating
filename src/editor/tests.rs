@@ -2,6 +2,41 @@ use super::*;
 use std::fs;
 
 #[test]
+fn control_n_p_move_lines_and_browse_separate_prompt_histories() {
+    let mut e = Editor::new("a\nb\nc", None);
+    e.normal_key('2');
+    e.control_key('n');
+    assert_eq!(e.cursor.row, 2);
+    e.control_key('p');
+    assert_eq!(e.cursor.row, 1);
+    for command in ["theme default", "noh", "theme everforest"] {
+        e.normal_key(':');
+        e.prompt = command.into();
+        e.submit_prompt();
+    }
+    e.normal_key('/');
+    e.prompt = "needle".into();
+    e.submit_prompt();
+    e.normal_key(':');
+    e.prompt = "theme".into();
+    e.control_key('p');
+    assert_eq!(e.prompt, "theme everforest");
+    e.control_key('p');
+    assert_eq!(e.prompt, "theme default");
+    e.control_key('n');
+    assert_eq!(e.prompt, "theme everforest");
+    e.control_key('n');
+    assert_eq!(e.prompt, "theme");
+    e.escape();
+    e.normal_key('/');
+    e.control_key('p');
+    assert_eq!(e.prompt, "needle");
+    e.edit_prompt(Some('x'));
+    e.control_key('p');
+    assert_eq!(e.prompt, "needlex");
+}
+
+#[test]
 fn indentation_folds_hide_nested_lines_and_motion_skips_them() {
     use super::folds::{FoldProvider, FoldRange, IndentFoldProvider};
     let mut e = Editor::new("root\n    child\n        leaf\n    sibling\n\nnext", None);

@@ -72,6 +72,11 @@ pub fn handle_keyboard(
         return;
     }
     if ctrl {
+        if is_key_pressed(KeyCode::N) || is_key_pressed(KeyCode::P) {
+            *vertical_motion = None;
+            editor.control_key(if is_key_pressed(KeyCode::N) { 'n' } else { 'p' });
+            return;
+        }
         if is_key_pressed(KeyCode::Key6) && editor.mode == Mode::Normal {
             *vertical_motion = None;
             editor.buffer_action = Some(BufferAction::Last);
@@ -281,7 +286,7 @@ pub fn handle_keyboard(
             }
         }
         Mode::Command | Mode::Search if is_key_pressed(KeyCode::Backspace) => {
-            editor.prompt.pop();
+            editor.edit_prompt(None);
         }
         _ => {}
     }
@@ -290,7 +295,7 @@ pub fn handle_keyboard(
             Mode::Insert => editor.insert_char(ch),
             Mode::Command | Mode::Search => {
                 if !ch.is_control() {
-                    editor.prompt.push(ch);
+                    editor.edit_prompt(Some(ch));
                 }
             }
             Mode::Normal | Mode::Visual => {

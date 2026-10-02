@@ -43,6 +43,7 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | Input | Action |
 | --- | --- |
 | `h` `j` `k` `l` / arrow keys | Move left / down / up / right |
+| `Ctrl+N` / `Ctrl+P` | Next / previous line in Normal or Visual mode; next / previous matching history entry in command and search prompts |
 | `Home` / `End` | Move to line start / line end |
 | `w` `b` `e` | Next word / previous word / word end |
 | `f{char}` / `F{char}` | Find next / previous matching character on the line; pressing `f` / `F` highlights and underlines a suggested letter in every following / previous word |
@@ -128,7 +129,7 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 
 ## TODO
 
-- Command mode shortcut
+- Command mode shortcut (Ctrl+C, q:, q/)
 - Change (`c`) command
 - Move between block delim
 - Select text block
@@ -158,6 +159,7 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 
 - Marks (buffer-local letter marks)
 - Indentation folds (replaceable fold provider for future Tree-sitter support)
+- Ctrl+N / Ctrl+P line movement and command/search history
 
 ## Development
 

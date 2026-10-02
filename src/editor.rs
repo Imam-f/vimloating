@@ -6,6 +6,7 @@ pub mod buffers;
 mod editing;
 mod files;
 pub mod folds;
+mod history;
 mod normal;
 mod viewport;
 
@@ -131,6 +132,10 @@ pub struct Editor {
     marks: std::collections::HashMap<char, Pos>,
     fold_provider: Box<dyn folds::FoldProvider>,
     closed_folds: Vec<folds::FoldRange>,
+    command_history: Vec<String>,
+    search_history: Vec<String>,
+    history_cursor: Option<usize>,
+    history_draft: String,
     pub quit: bool,
     pub force_quit: bool,
     undo: Vec<Snapshot>,
@@ -178,6 +183,10 @@ impl Editor {
             marks: std::collections::HashMap::new(),
             fold_provider: Box::new(folds::IndentFoldProvider),
             closed_folds: Vec::new(),
+            command_history: Vec::new(),
+            search_history: Vec::new(),
+            history_cursor: None,
+            history_draft: String::new(),
             quit: false,
             force_quit: false,
             undo: vec![],
@@ -311,6 +320,7 @@ impl Editor {
         self.count.clear();
         self.prompt.clear();
         self.completion_cycle = None;
+        self.history_cursor = None;
         self.preferred_col = None;
         self.clamp();
     }

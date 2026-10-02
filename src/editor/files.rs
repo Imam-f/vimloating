@@ -269,6 +269,7 @@ impl Editor {
 
     pub fn submit_prompt(&mut self) {
         let prompt = self.prompt.clone();
+        self.remember_prompt(&prompt);
         let searching = self.mode == Mode::Search;
         let search_backwards = self.search_prompt_backwards;
         self.escape();
