@@ -53,6 +53,7 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `0` `^` `$` | Line start / first nonblank / line end |
 | `H` / `M` / `L` | First nonblank on the top / middle / bottom visible line |
 | `gg` / `G` | First / last line |
+| `m{letter}` / `` `{letter} `` / `'{letter}` | Set a buffer-local mark / jump to its position / jump to its first nonblank |
 | `12G` or `:12` | Go to line 12 |
 | `i` / `a` | Insert before / after the cursor |
 | `I` / `A` | Insert at first nonblank / line end |
@@ -126,7 +127,6 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 
 ## TODO
 
-- Marks
 - Folds
 - Command mode shortcut
 - Change (`c`) command
@@ -153,6 +153,10 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 - Popup mode
 - Full canvas support
 - Arrow/rope connector
+
+## Done
+
+- Marks (buffer-local letter marks)
 
 ## Development
 

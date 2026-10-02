@@ -339,6 +339,29 @@ impl Editor {
         self.char_find_highlight = None;
         self.char_find_hints.clear();
         self.search_task = None;
+        if let Some(command @ ('m' | '\'' | '`')) = self.pending {
+            self.pending = None;
+            self.count.clear();
+            if !key.is_ascii_alphabetic() {
+                self.message = "Marks use letters a-z or A-Z".into();
+            } else if command == 'm' {
+                self.marks.insert(key, self.cursor);
+                self.message = format!("Mark {key} set");
+            } else if let Some(&position) = self.marks.get(&key) {
+                self.cursor = position;
+                self.clamp();
+                if command == '\'' {
+                    self.cursor.col = self.lines[self.cursor.row]
+                        .iter()
+                        .position(|ch| !ch.is_whitespace())
+                        .unwrap_or(0);
+                }
+                self.preferred_col = None;
+            } else {
+                self.message = format!("Mark {key} is not set");
+            }
+            return;
+        }
         if self.is_directory_browser() && !matches!(self.pending, Some('f' | 'F' | 't' | 'T')) {
             if key == '-' {
                 if let Some(parent) = self.path.as_deref().and_then(std::path::Path::parent) {
@@ -439,7 +462,7 @@ impl Editor {
                 };
                 self.clamp();
             }
-            'g' | 'd' | 'y' | 'z' => {
+            'g' | 'd' | 'y' | 'z' | 'm' | '\'' | '`' => {
                 self.pending = Some(key);
                 return;
             }

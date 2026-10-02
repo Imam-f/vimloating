@@ -2,6 +2,34 @@ use super::*;
 use std::fs;
 
 #[test]
+fn marks_jump_exactly_or_to_first_nonblank_and_stay_buffer_local() {
+    let mut e = Editor::new("first\n  second", None);
+    e.cursor = Pos { row: 1, col: 5 };
+    for key in "ma".chars() {
+        e.normal_key(key);
+    }
+    e.cursor = Pos::default();
+    for key in "`a".chars() {
+        e.normal_key(key);
+    }
+    assert_eq!(e.cursor, Pos { row: 1, col: 5 });
+    for key in "'a".chars() {
+        e.normal_key(key);
+    }
+    assert_eq!(e.cursor, Pos { row: 1, col: 2 });
+    let mut other = Editor::new("other", None);
+    for key in "`a".chars() {
+        other.normal_key(key);
+    }
+    assert!(other.message.contains("not set"));
+    e.lines.truncate(1);
+    for key in "`a".chars() {
+        e.normal_key(key);
+    }
+    assert_eq!(e.cursor.row, 0);
+}
+
+#[test]
 fn unicode_editing_and_insert_session_undo() {
     let mut e = Editor::new("héllo\n世界", None);
     e.begin_insert('A');
