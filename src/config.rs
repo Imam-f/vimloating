@@ -191,6 +191,7 @@ fn main() {
 //   dd / yy / p    delete / yank / paste a line
 //   u / Ctrl-R     undo / redo
 //   v              select text, then y or d
+//   Ctrl+A / Ctrl+X increment / decrement the next decimal number
 //   /text, ?text   search forward / backward; n / N repeat / reverse
 //   :w notes.rs    save this buffer
 //   :e notes.rs    open a UTF-8 file
@@ -212,6 +213,7 @@ fn main() {
 //   F5             toggle 2D-only mode on/off
 //   Ctrl+- / =     change font size
 //   Ctrl+W / Ctrl+Backspace delete previous word in Insert mode
+//   Ctrl+V          paste system clipboard text in Insert mode
 //   Ctrl+J / K     animate five-line movement
 //   Ctrl+E / Y     scroll one display line
 //   Ctrl+D / U     scroll half a page; Ctrl+F / B one page

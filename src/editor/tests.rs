@@ -94,6 +94,38 @@ fn single_angle_brackets_indent_and_unindent_the_current_line() {
 }
 
 #[test]
+fn number_adjustment_preserves_zero_padding_and_repeats_with_dot() {
+    let mut e = Editor::new("value 009 and 20", None);
+    e.cursor.col = 6;
+    assert!(e.adjust_number(1));
+    assert_eq!(e.text(), "value 010 and 20");
+    assert!(e.adjust_number(-2));
+    assert_eq!(e.text(), "value 008 and 20");
+
+    e.cursor.col = 14;
+    e.normal_key('.');
+    assert_eq!(e.text(), "value 008 and 18");
+}
+
+#[test]
+fn number_adjustment_handles_negative_values_and_missing_numbers() {
+    let mut e = Editor::new("-09 and text", None);
+    assert!(e.adjust_number(1));
+    assert_eq!(e.text(), "-08 and text");
+    assert!(e.adjust_number(-1));
+    assert_eq!(e.text(), "-09 and text");
+
+    e.cursor.col = 5;
+    assert!(!e.adjust_number(1));
+    assert_eq!(e.text(), "-09 and text");
+
+    let mut e = Editor::new("199", None);
+    e.cursor.col = 1;
+    assert!(e.adjust_number(1));
+    assert_eq!(e.text(), "200");
+}
+
+#[test]
 fn moving_a_line_reindents_it_to_the_previous_nonblank_line() {
     let mut e = Editor::new("root\n    moved\n   \nsibling", None);
     e.cursor = Pos { row: 1, col: 6 };

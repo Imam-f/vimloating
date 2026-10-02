@@ -201,6 +201,9 @@ impl Editor {
                 }
                 RepeatChange::Indent(increase) => self.change_indent(*increase),
                 RepeatChange::MoveLine(direction) => self.move_line(*direction),
+                RepeatChange::Number(delta) => {
+                    self.adjust_number(*delta);
+                }
                 RepeatChange::VisualDelete {
                     linewise,
                     row_delta,

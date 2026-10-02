@@ -67,6 +67,7 @@ enum RepeatChange {
     },
     Indent(bool),
     MoveLine(isize),
+    Number(i128),
     VisualDelete {
         linewise: bool,
         row_delta: usize,

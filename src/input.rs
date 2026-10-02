@@ -79,6 +79,18 @@ pub fn handle_keyboard(
             editor.buffer_action = Some(BufferAction::Last);
             return;
         }
+        if (is_key_pressed(KeyCode::A) || is_key_pressed(KeyCode::X)) && editor.mode == Mode::Normal
+        {
+            *vertical_motion = None;
+            let amount = editor.count.parse::<i128>().unwrap_or(1).clamp(1, 10_000);
+            editor.count.clear();
+            editor.adjust_number(if is_key_pressed(KeyCode::A) {
+                amount
+            } else {
+                -amount
+            });
+            return;
+        }
         if is_key_pressed(KeyCode::J) || is_key_pressed(KeyCode::K) {
             let repeat_key = if is_key_pressed(KeyCode::J) {
                 KeyCode::J
@@ -97,6 +109,8 @@ pub fn handle_keyboard(
             KeyCode::Minus,
             KeyCode::Equal,
             KeyCode::Key6,
+            KeyCode::A,
+            KeyCode::X,
             KeyCode::S,
             KeyCode::Backspace,
             KeyCode::W,

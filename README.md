@@ -61,6 +61,7 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `dd` / `yy` | Delete / yank a line |
 | `p` / `P` | Paste after / before from the internal register |
 | `v` / `V`, then movement | Select characters / whole lines |
+| `Ctrl+A` / `Ctrl+X` in Normal mode | Increment / decrement the decimal number at or after the cursor |
 | `o` in Visual mode | Switch the active end of the selection |
 | `d` / `x` / `y` in Visual mode | Delete / delete / yank the selection; line selections paste as lines |
 | `<` / `>` | Unindent / indent the current line, or every selected line in Visual mode |
@@ -125,6 +126,16 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 
 ## TODO
 
+- Marks
+- Folds
+- Command mode shortcut
+- Change (`c`) command
+- Inside/around text objects
+- Insert mode control
+- Upper/lower case
+- Outline
+- More Vim options
+- Fuzzy finder / command palette
 - 3D control with keyboard
 - CLI command
 - TUI mode

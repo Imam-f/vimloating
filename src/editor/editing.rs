@@ -3,6 +3,76 @@ use super::{Editor, InsertAction, RepeatChange};
 const INDENT_WIDTH: usize = 4;
 
 impl Editor {
+    pub fn adjust_number(&mut self, delta: i128) -> bool {
+        if self.mode != super::Mode::Normal || self.is_directory_browser() {
+            return false;
+        }
+        let row = self.cursor.row;
+        let line = &self.lines[row];
+        let Some(mut digit_start) =
+            (self.cursor.col.min(line.len())..line.len()).find(|&col| line[col].is_ascii_digit())
+        else {
+            self.message = "No number under cursor".into();
+            return false;
+        };
+        while digit_start > 0 && line[digit_start - 1].is_ascii_digit() {
+            digit_start -= 1;
+        }
+        let mut start = digit_start;
+        if start > 0
+            && matches!(line[start - 1], '+' | '-')
+            && (start == 1 || !(line[start - 2].is_alphanumeric() || line[start - 2] == '_'))
+        {
+            start -= 1;
+        }
+        let mut end = digit_start;
+        while end < line.len() && line[end].is_ascii_digit() {
+            end += 1;
+        }
+        let original: String = line[start..end].iter().collect();
+        let Ok(value) = original.parse::<i128>() else {
+            self.message = "Number is too large to adjust".into();
+            return false;
+        };
+        let Some(adjusted) = value.checked_add(delta) else {
+            self.message = "Number is too large to adjust".into();
+            return false;
+        };
+        let digit_width = end - digit_start;
+        let mut digits = adjusted.unsigned_abs().to_string();
+        if digits.len() < digit_width {
+            digits.insert_str(0, &"0".repeat(digit_width - digits.len()));
+        }
+        let replacement = if adjusted < 0 {
+            format!("-{digits}")
+        } else {
+            digits
+        };
+
+        if !self.replaying_change {
+            self.last_change = Some(RepeatChange::Number(delta));
+        }
+        self.checkpoint();
+        self.touch();
+        self.horizontal_scroll_hold = false;
+        self.preferred_col = None;
+        self.lines[row].splice(start..end, replacement.chars());
+        let replacement_len = replacement.chars().count();
+        self.cursor.col = start
+            + self
+                .cursor
+                .col
+                .saturating_sub(start)
+                .min(replacement_len.saturating_sub(1));
+        self.clamp();
+        self.message = if delta > 0 {
+            "Incremented number".into()
+        } else {
+            "Decremented number".into()
+        };
+        true
+    }
+
     pub fn begin_insert(&mut self, key: char) {
         self.horizontal_scroll_hold = false;
         if !self.replaying_change {
