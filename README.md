@@ -137,6 +137,7 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 - Inside/around text objects
 - Insert mode control
 - Upper/lower case
+- Next/Prev word under cursor
 - Outline
 - More Vim options
 - Fuzzy finder / command palette
