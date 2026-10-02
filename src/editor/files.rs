@@ -485,10 +485,17 @@ impl Editor {
             "noh" | "nohlsearch" => self.search.clear(),
             _ => {
                 if let Ok(line) = command.parse::<usize>() {
+                    self.search_task = None;
+                    self.char_find_highlight = None;
+                    self.char_find_hints.clear();
+                    self.preferred_col = None;
+                    self.horizontal_scroll_hold = false;
+                    let row = line.saturating_sub(1).min(self.lines.len() - 1);
                     self.cursor = Pos {
-                        row: line.saturating_sub(1).min(self.lines.len() - 1),
-                        col: 0,
+                        row,
+                        col: self.lines[row].iter().position(|ch| !ch.is_whitespace()).unwrap_or(0),
                     };
+                    self.clamp();
                 } else {
                     self.message = format!("Unknown command: {command}");
                 }

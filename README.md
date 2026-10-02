@@ -110,6 +110,7 @@ Type `:`, enter a command, and press Enter. Press Tab to complete command names 
 
 | Command | Action |
 | --- | --- |
+| `:120` | Jump to the first nonblank on line 120, revealing folds; numbers beyond the file end land on its last line |
 | `:w` | Save |
 | `:w path/to/file` | Save under a filename |
 | `:e path/to/file` | Open a file in another buffer; keep unsaved edits in the current buffer |
@@ -143,7 +144,6 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 - Change (`c`) command
 - Selection based command mode
 - Insert mode control
-- Double colon number
 - Outline
 - More Vim options
 - Fuzzy finder / command palette
@@ -173,6 +173,7 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 - Toggle case with ~ and g~~
 - Upper/lower case with guu and gUU
 - Next/previous word under cursor with * and #
+- Go to a line with :120
 
 ## Development
 

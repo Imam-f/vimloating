@@ -2,6 +2,36 @@ use super::*;
 use std::fs;
 
 #[test]
+fn numeric_command_jumps_to_first_nonblank_and_clamps_to_document_bounds() {
+    let text = (1..=130)
+        .map(|row| format!("  line {row}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let mut e = Editor::new(&text, None);
+    e.move_by(0, 1, 1);
+    e.normal_key(':');
+    e.prompt = "120".into();
+    e.submit_prompt();
+    assert_eq!(e.cursor, Pos { row: 119, col: 2 });
+    assert_eq!(e.mode, Mode::Normal);
+    e.normal_key('j');
+    assert_eq!(e.cursor, Pos { row: 120, col: 2 });
+    e.command("999");
+    assert_eq!(e.cursor, Pos { row: 129, col: 2 });
+    e.command("0");
+    assert_eq!(e.cursor, Pos { row: 0, col: 2 });
+    e.command("-1");
+    assert_eq!(e.cursor, Pos { row: 0, col: 2 });
+    let mut folded = Editor::new("root\n    child\nnext", None);
+    for key in "zc".chars() {
+        folded.normal_key(key);
+    }
+    folded.command("2");
+    assert_eq!(folded.cursor, Pos { row: 1, col: 4 });
+    assert_eq!(folded.display_total(80, false), 3);
+}
+
+#[test]
 fn star_hash_search_whole_unicode_words_with_counts_wraparound_and_repeat() {
     let mut e = Editor::new("λ foo foo_bar foobar\nfoo λ food foo", None);
     e.cursor.col = 4;
