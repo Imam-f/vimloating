@@ -1,4 +1,6 @@
-use super::{BufferAction, CharFind, Editor, InsertAction, Mode, Pos, RepeatChange};
+use super::{
+    BufferAction, CharFind, Editor, InsertAction, Mode, Pos, RepeatChange, operators::TextOperator,
+};
 use std::collections::HashMap;
 
 impl Editor {
@@ -246,7 +248,7 @@ impl Editor {
         }
     }
 
-    fn visual_action(&mut self, delete: bool) {
+    pub(super) fn visual_action(&mut self, delete: bool) {
         self.touch();
         let (a, b) = self.selection();
         if !delete {
@@ -330,7 +332,7 @@ impl Editor {
         self.escape();
     }
 
-    fn line_action(&mut self, delete: bool, n: usize) {
+    pub(super) fn line_action(&mut self, delete: bool, n: usize) {
         self.touch();
         let end = (self.cursor.row + n).min(self.lines.len());
         if !delete {
@@ -481,27 +483,13 @@ impl Editor {
             self.count.clear();
             if let Some((operator, operator_count)) = self.pending_operator.take() {
                 let total = operator_count.saturating_mul(n).min(10000);
-                if pending == operator {
-                    if key == operator {
-                        if operator == 'd' {
-                            self.remember_normal_change(total, &['d', 'd']);
-                        }
-                        self.line_action(operator == 'd', total);
-                    } else if matches!(key, 'i' | 'a') {
-                        self.pending = Some(key);
-                        self.pending_operator = Some((operator, total));
-                    }
-                } else if matches!(pending, 'i' | 'a') && self.mode == Mode::Normal {
-                    let origin = self.cursor;
-                    if self.select_text_object(key, pending == 'a', total) {
-                        self.visual_action(operator == 'd');
-                        if operator == 'd' {
-                            self.remember_normal_change(total, &[operator, pending, key]);
-                        } else {
-                            self.cursor = origin;
-                            self.clamp();
-                        }
-                    }
+                if matches!(pending, 'i' | 'a') && self.mode == Mode::Normal {
+                    self.apply_text_object_operator(operator, pending == 'a', key, total);
+                } else if key == operator.line_key() {
+                    self.apply_line_operator(operator, total);
+                } else if matches!(key, 'i' | 'a') {
+                    self.pending = Some(key);
+                    self.pending_operator = Some((operator, total));
                 }
                 return;
             }
@@ -515,23 +503,7 @@ impl Editor {
                     self.change_case(operation, n, false);
                 } else {
                     self.pending = Some(key);
-                    if n > 1 {
-                        self.count = n.to_string();
-                    }
-                }
-                return;
-            }
-            if matches!(pending, 'u' | 'U') {
-                if key == pending {
-                    self.change_case(
-                        if pending == 'u' {
-                            super::case::CaseChange::Lower
-                        } else {
-                            super::case::CaseChange::Upper
-                        },
-                        n,
-                        true,
-                    );
+                    self.pending_operator = Some((TextOperator::Case(operation), n));
                 }
                 return;
             }
@@ -540,15 +512,8 @@ impl Editor {
                     self.change_case(super::case::CaseChange::Toggle, n, false);
                 } else {
                     self.pending = Some('~');
-                    if n > 1 {
-                        self.count = n.to_string();
-                    }
-                }
-                return;
-            }
-            if pending == '~' {
-                if key == '~' {
-                    self.change_case(super::case::CaseChange::Toggle, n, true);
+                    self.pending_operator =
+                        Some((TextOperator::Case(super::case::CaseChange::Toggle), n));
                 }
                 return;
             }
@@ -586,7 +551,9 @@ impl Editor {
         }
         match key {
             '*' | '#' => self.search_cursor_word(key == '#', n),
-            '~' => self.change_case(super::case::CaseChange::Toggle, n, false),
+            '~' => {
+                self.change_case(super::case::CaseChange::Toggle, n, false);
+            }
             '%' => self.matching_delimiter(),
             'h' => self.move_by(-1, 0, n),
             'j' => self.move_by(0, 1, n),
@@ -619,7 +586,14 @@ impl Editor {
             }
             'd' | 'y' => {
                 self.pending = Some(key);
-                self.pending_operator = Some((key, n));
+                self.pending_operator = Some((
+                    if key == 'd' {
+                        TextOperator::Delete
+                    } else {
+                        TextOperator::Yank
+                    },
+                    n,
+                ));
                 self.count.clear();
                 return;
             }

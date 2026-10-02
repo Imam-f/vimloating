@@ -66,6 +66,7 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `guu` / `gUU`, `gu` / `gU` in Visual mode | Lowercase / uppercase whole lines (with counts) or the selection |
 | `dd` / `yy` | Delete / yank a line |
 | `diw` / `daw`, `yiw` / `yaw` | Delete / yank inner or around words directly in Normal mode; d/y also work with the other text objects below, with counts |
+| `guiw` / `gUiw` / `g~iw`, `guaw` / `gUaw` / `g~aw` | Lowercase / uppercase / toggle case of inner or around text objects; all objects below work with v, d, y, gu, gU and g~, with counts; edits support undo and `.` repeat |
 | `p` / `P` | Paste after / before from the internal register |
 | `v` / `V`, then movement | Select characters / whole lines |
 | `Ctrl+V` in Normal or Visual mode | Select a rectangular block; movement extends it, y/d/r copy/delete/replace it, p/P paste blocks in columns |

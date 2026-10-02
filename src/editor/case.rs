@@ -19,10 +19,15 @@ impl CaseChange {
 }
 
 impl Editor {
-    pub(super) fn change_case(&mut self, operation: CaseChange, count: usize, whole_lines: bool) {
+    pub(super) fn change_case(
+        &mut self,
+        operation: CaseChange,
+        count: usize,
+        whole_lines: bool,
+    ) -> bool {
         if self.is_directory_browser() {
             self.message = "Directory listing is read-only".into();
-            return;
+            return false;
         }
         let visual = self.mode == Mode::Visual;
         let (a, b) = if visual {
@@ -70,7 +75,8 @@ impl Editor {
                 replacements.push((row, start, end, replacement));
             }
         }
-        if !replacements.is_empty() {
+        let changed = !replacements.is_empty();
+        if changed {
             self.checkpoint();
             self.touch();
             for (row, start, end, replacement) in replacements {
@@ -107,5 +113,6 @@ impl Editor {
         }
         self.preferred_col = None;
         self.clamp();
+        changed
     }
 }

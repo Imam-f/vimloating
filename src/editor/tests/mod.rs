@@ -8,6 +8,7 @@ mod folds;
 mod history;
 mod motions;
 mod search;
+mod text_object_operators;
 mod text_objects;
 mod viewport;
 mod visual;

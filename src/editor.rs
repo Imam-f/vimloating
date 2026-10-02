@@ -11,6 +11,7 @@ mod files;
 pub mod folds;
 mod history;
 mod normal;
+mod operators;
 mod replace;
 mod text_objects;
 mod viewport;
@@ -147,7 +148,7 @@ pub struct Editor {
     pub left: usize,
     horizontal_scroll_hold: bool,
     pub pending: Option<char>,
-    pending_operator: Option<(char, usize)>,
+    pending_operator: Option<(operators::TextOperator, usize)>,
     pub count: String,
     marks: std::collections::HashMap<char, Pos>,
     fold_provider: Box<dyn folds::FoldProvider>,
