@@ -3,11 +3,15 @@ use super::{Editor, Mode, Pos, RepeatChange};
 #[derive(Clone, Copy)]
 pub(super) enum CaseChange {
     Toggle,
+    Lower,
+    Upper,
 }
 
 impl CaseChange {
     fn apply(self, ch: char) -> Vec<char> {
         match self {
+            Self::Lower => ch.to_lowercase().collect(),
+            Self::Upper => ch.to_uppercase().collect(),
             Self::Toggle if ch.is_uppercase() => ch.to_lowercase().collect(),
             Self::Toggle => ch.to_uppercase().collect(),
         }
@@ -81,14 +85,13 @@ impl Editor {
                     operation,
                 });
             } else if !visual {
-                self.remember_normal_change(
-                    count,
-                    if whole_lines {
-                        &['g', '~', '~']
-                    } else {
-                        &['~']
-                    },
-                );
+                let keys: &[char] = match operation {
+                    CaseChange::Lower => &['g', 'u', 'u'],
+                    CaseChange::Upper => &['g', 'U', 'U'],
+                    CaseChange::Toggle if whole_lines => &['g', '~', '~'],
+                    CaseChange::Toggle => &['~'],
+                };
+                self.remember_normal_change(count, keys);
             }
         }
         if visual {

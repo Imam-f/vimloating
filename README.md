@@ -63,6 +63,7 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `x` / `X` / `D` | Delete under cursor / before cursor / to end of line |
 | `r{char}` | Replace characters under the cursor (with counts) or throughout a Visual selection; Enter replaces with a line break |
 | `~` / `g~~` | Toggle case of characters / whole lines (with counts), or the Visual selection; supports Unicode, undo and repeat |
+| `guu` / `gUU`, `gu` / `gU` in Visual mode | Lowercase / uppercase whole lines (with counts) or the selection |
 | `dd` / `yy` | Delete / yank a line |
 | `p` / `P` | Paste after / before from the internal register |
 | `v` / `V`, then movement | Select characters / whole lines |
@@ -141,7 +142,6 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 - Change (`c`) command
 - Selection based command mode
 - Insert mode control
-- Upper/lower case (guu, gUU)
 - Next/Prev word under cursor
 - Double colon number
 - Outline
@@ -171,6 +171,7 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 - Visual feedback when yanking (copied area blinks briefly)
 - Ctrl+V block selection
 - Toggle case with ~ and g~~
+- Upper/lower case with guu and gUU
 
 ## Development
 
