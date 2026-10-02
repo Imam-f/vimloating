@@ -106,6 +106,7 @@ struct DisplayCache {
 
 struct SearchTask {
     needle: Vec<char>,
+    whole_word: bool,
     backwards: bool,
     origin: Pos,
     candidate: Pos,
@@ -134,6 +135,7 @@ pub struct Editor {
     pub message: String,
     pub prompt: String,
     pub search: String,
+    pub search_whole_word: bool,
     pub search_backwards: bool,
     pub search_prompt_backwards: bool,
     pub char_find_highlight: Option<Pos>,
@@ -190,6 +192,7 @@ impl Editor {
             message: "Ready · :help for controls".into(),
             prompt: String::new(),
             search: String::new(),
+            search_whole_word: false,
             search_backwards: false,
             search_prompt_backwards: false,
             char_find_highlight: None,

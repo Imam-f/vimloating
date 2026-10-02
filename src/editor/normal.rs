@@ -568,6 +568,7 @@ impl Editor {
             return;
         }
         match key {
+            '*' | '#' => self.search_cursor_word(key == '#', n),
             '~' => self.change_case(super::case::CaseChange::Toggle, n, false),
             '%' => self.matching_delimiter(),
             'h' => self.move_by(-1, 0, n),

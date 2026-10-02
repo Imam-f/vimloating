@@ -15,6 +15,10 @@ enum SearchStep {
 
 const SEARCH_STEPS_PER_FRAME: usize = 4096;
 
+fn keyword(ch: char) -> bool {
+    ch.is_alphanumeric() || ch == '_'
+}
+
 impl SearchTask {
     fn finish(&self) -> SearchStep {
         self.last_match.map_or(SearchStep::Done, SearchStep::Found)
@@ -124,6 +128,16 @@ impl SearchTask {
             }
         }
 
+        let line = &lines[self.candidate.row];
+        let start = self.candidate.col;
+        let end = start + self.needle.len();
+        if self.whole_word
+            && ((start > 0 && keyword(line[start - 1]))
+                || line.get(end).is_some_and(|&ch| keyword(ch)))
+        {
+            self.advance_candidate = true;
+            return SearchStep::Continue;
+        }
         self.compare_offset = Some(0);
         SearchStep::Continue
     }
@@ -214,6 +228,25 @@ impl Editor {
         self.start_find(backwards, 1, true);
     }
 
+    pub(super) fn search_cursor_word(&mut self, backwards: bool, count: usize) {
+        let line = &self.lines[self.cursor.row];
+        let Some(mut start) = (self.cursor.col..line.len()).find(|&col| keyword(line[col])) else {
+            self.message = "No word under or after cursor".into();
+            return;
+        };
+        while start > 0 && keyword(line[start - 1]) {
+            start -= 1;
+        }
+        let mut end = start;
+        while end < line.len() && keyword(line[end]) {
+            end += 1;
+        }
+        self.search = line[start..end].iter().collect();
+        self.search_whole_word = true;
+        self.cursor.col = start;
+        self.start_find(backwards, count, true);
+    }
+
     pub(super) fn find_repeat(&mut self, backwards: bool, count: usize) {
         self.start_find(backwards, count, false);
     }
@@ -230,6 +263,7 @@ impl Editor {
         }
         self.search_task = Some(SearchTask {
             needle,
+            whole_word: self.search_whole_word,
             backwards,
             origin: self.cursor,
             candidate: self.cursor,
@@ -276,6 +310,7 @@ impl Editor {
         if searching {
             if !prompt.is_empty() {
                 self.search = prompt;
+                self.search_whole_word = false;
             }
             self.search_backwards = search_backwards;
             self.find(search_backwards);

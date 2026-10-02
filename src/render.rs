@@ -143,6 +143,7 @@ fn search_highlights(
     prefix: &[usize],
     visible_start: usize,
     visible_end: usize,
+    whole_word: bool,
 ) -> Vec<bool> {
     let width = visible_end.saturating_sub(visible_start);
     let mut changes = vec![0isize; width + 1];
@@ -167,6 +168,14 @@ fn search_highlights(
         }
         if matched == needle.len() {
             let start = col + 1 - needle.len();
+            let keyword = |ch: char| ch.is_alphanumeric() || ch == '_';
+            if whole_word
+                && ((start > 0 && keyword(line[start - 1]))
+                    || line.get(col + 1).is_some_and(|&ch| keyword(ch)))
+            {
+                matched = prefix[matched - 1];
+                continue;
+            }
             let overlap_start = start.max(visible_start);
             let overlap_end = (start + needle.len()).min(visible_end);
             if overlap_start < overlap_end {
@@ -266,8 +275,16 @@ pub fn draw_buffer(
         };
         let visible_start = segment_start + if word_wrap { 0 } else { editor.left };
         let visible_end = (visible_start + cols).min(line.len());
-        let highlighted_cells = has_search
-            .then(|| search_highlights(line, &search, &search_prefix, visible_start, visible_end));
+        let highlighted_cells = has_search.then(|| {
+            search_highlights(
+                line,
+                &search,
+                &search_prefix,
+                visible_start,
+                visible_end,
+                editor.mode != Mode::Search && editor.search_whole_word,
+            )
+        });
         let cursor_segment = if word_wrap {
             editor.cursor.col / cols * cols
         } else {
@@ -768,7 +785,7 @@ mod tests {
         let prefix = search_prefix(&needle);
 
         assert_eq!(
-            search_highlights(&line, &needle, &prefix, 2, 5),
+            search_highlights(&line, &needle, &prefix, 2, 5, false),
             vec![true, true, true]
         );
     }

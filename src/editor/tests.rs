@@ -2,6 +2,38 @@ use super::*;
 use std::fs;
 
 #[test]
+fn star_hash_search_whole_unicode_words_with_counts_wraparound_and_repeat() {
+    let mut e = Editor::new("λ foo foo_bar foobar\nfoo λ food foo", None);
+    e.cursor.col = 4;
+    e.normal_key('*');
+    e.advance_search();
+    assert_eq!(e.search, "foo");
+    assert_eq!(e.cursor, Pos { row: 1, col: 0 });
+    e.normal_key('n');
+    e.advance_search();
+    assert_eq!(e.cursor, Pos { row: 1, col: 11 });
+    e.normal_key('N');
+    e.advance_search();
+    assert_eq!(e.cursor, Pos { row: 1, col: 0 });
+    e.cursor.col = 1;
+    e.normal_key('#');
+    e.advance_search();
+    assert_eq!(e.cursor, Pos { row: 0, col: 2 });
+    e.normal_key('2');
+    e.normal_key('*');
+    e.advance_search();
+    assert_eq!(e.cursor, Pos { row: 1, col: 11 });
+    e.cursor = Pos::default();
+    e.normal_key('#');
+    e.advance_search();
+    assert_eq!(e.cursor, Pos { row: 1, col: 4 });
+    e.normal_key('/');
+    e.prompt = "foo".into();
+    e.submit_prompt();
+    assert!(!e.search_whole_word);
+}
+
+#[test]
 fn lowercase_uppercase_lines_and_visual_selections_support_counts_undo_and_repeat() {
     let mut e = Editor::new("  HéLLo\nßabc\nMiXeD", None);
     for key in "2guu".chars() {

@@ -86,6 +86,7 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `q:` / `q/` | Edit command / search history with Vim keys; Enter executes the selected line, Ctrl+C transfers it to the prompt, Esc closes |
 | `/pattern` / `?pattern`, `Enter` | Search forward / backward with live highlights and wraparound |
 | `n` / `N` | Repeat in the last search direction / opposite direction |
+| `*` / `#` | Search forward / backward for the complete word under or after the cursor; counts and n/N repeat with wraparound |
 | `Ctrl+6` | Toggle to the last active buffer |
 | `Ctrl+E` / `Ctrl+Y` | Scroll down / up one display line |
 | `Ctrl+D` / `Ctrl+U` | Scroll down / up half a page, then center the view |
@@ -142,7 +143,6 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 - Change (`c`) command
 - Selection based command mode
 - Insert mode control
-- Next/Prev word under cursor
 - Double colon number
 - Outline
 - More Vim options
@@ -172,6 +172,7 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 - Ctrl+V block selection
 - Toggle case with ~ and g~~
 - Upper/lower case with guu and gUU
+- Next/previous word under cursor with * and #
 
 ## Development
 
