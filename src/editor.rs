@@ -151,6 +151,7 @@ pub struct Editor {
     marks: std::collections::HashMap<char, Pos>,
     fold_provider: Box<dyn folds::FoldProvider>,
     closed_folds: Vec<folds::FoldRange>,
+    visible_folds: Vec<folds::FoldRange>,
     command_history: Vec<String>,
     search_history: Vec<String>,
     history_cursor: Option<usize>,
@@ -208,6 +209,7 @@ impl Editor {
             marks: std::collections::HashMap::new(),
             fold_provider: Box::new(folds::IndentFoldProvider),
             closed_folds: Vec::new(),
+            visible_folds: Vec::new(),
             command_history: Vec::new(),
             search_history: Vec::new(),
             history_cursor: None,
@@ -249,6 +251,7 @@ impl Editor {
         self.yank_highlight = None;
         // Edits open folds so source ranges cannot become stale after line changes.
         self.closed_folds.clear();
+        self.visible_folds.clear();
         self.structural_revision = self.structural_revision.wrapping_add(1);
     }
 

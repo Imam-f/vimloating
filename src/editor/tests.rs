@@ -2,6 +2,30 @@ use super::*;
 use std::fs;
 
 #[test]
+fn separately_closed_nested_folds_keep_the_outer_header_visible() {
+    let mut e = Editor::new("root\n    child\n        leaf\nnext", None);
+    e.cursor.row = 1;
+    for key in "zc".chars() {
+        e.normal_key(key);
+    }
+    e.cursor.row = 0;
+    for key in "zcjk".chars() {
+        e.normal_key(key);
+    }
+    assert_eq!(e.cursor, Pos::default());
+    assert_eq!(e.display_rows(80, false), vec![(0, 0), (3, 0)]);
+    for key in "zo".chars() {
+        e.normal_key(key);
+    }
+    assert_eq!(e.display_rows(80, false), vec![(0, 0), (1, 0), (3, 0)]);
+    e.normal_key('j');
+    for key in "zo".chars() {
+        e.normal_key(key);
+    }
+    assert_eq!(e.display_total(80, false), 4);
+}
+
+#[test]
 fn numeric_command_jumps_to_first_nonblank_and_clamps_to_document_bounds() {
     let text = (1..=130)
         .map(|row| format!("  line {row}"))

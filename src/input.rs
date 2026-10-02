@@ -339,7 +339,10 @@ pub fn handle_keyboard(
                 }
             }
             Mode::Normal | Mode::Visual => {
-                if editor.mode == Mode::Normal && matches!(ch, 'H' | 'M' | 'L') {
+                if editor.mode == Mode::Normal
+                    && editor.pending.is_none()
+                    && matches!(ch, 'H' | 'M' | 'L')
+                {
                     let (rows, cols, _, _) = text_grid(*font_size);
                     let offset = match ch {
                         'H' => 0,

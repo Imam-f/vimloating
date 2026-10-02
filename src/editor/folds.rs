@@ -58,22 +58,47 @@ impl Editor {
     pub fn set_fold_provider(&mut self, provider: Box<dyn FoldProvider>) {
         self.fold_provider = provider;
         self.closed_folds.clear();
+        self.visible_folds.clear();
         self.structural_revision = self.structural_revision.wrapping_add(1);
     }
 
     pub fn folded_range(&self, row: usize) -> Option<FoldRange> {
-        self.closed_folds
-            .iter()
+        let index = self
+            .visible_folds
+            .partition_point(|range| range.start < row);
+        self.visible_folds
+            .get(index)
             .copied()
             .filter(|range| range.start == row)
-            .max_by_key(|range| range.end)
     }
 
     pub(super) fn hidden_fold(&self, row: usize) -> Option<FoldRange> {
-        self.closed_folds
-            .iter()
+        let index = self
+            .visible_folds
+            .partition_point(|range| range.start < row)
+            .checked_sub(1)?;
+        self.visible_folds
+            .get(index)
             .copied()
-            .find(|range| range.start < row && row <= range.end)
+            .filter(|range| row <= range.end)
+    }
+
+    fn index_closed_folds(&mut self) {
+        self.closed_folds
+            .retain(|range| range.start < range.end && range.end < self.lines.len());
+        self.closed_folds
+            .sort_by_key(|range| (range.start, std::cmp::Reverse(range.end)));
+        self.closed_folds.dedup();
+        self.visible_folds.clear();
+        for &range in &self.closed_folds {
+            if self
+                .visible_folds
+                .last()
+                .is_none_or(|outer| outer.end < range.start)
+            {
+                self.visible_folds.push(range);
+            }
+        }
     }
 
     pub(super) fn reveal_fold(&mut self) {
@@ -82,6 +107,7 @@ impl Editor {
         self.closed_folds
             .retain(|range| !(range.start < row && row <= range.end));
         if before != self.closed_folds.len() {
+            self.index_closed_folds();
             self.structural_revision = self.structural_revision.wrapping_add(1);
         }
     }
@@ -120,8 +146,12 @@ impl Editor {
             }
             _ => return,
         }
+        self.index_closed_folds();
         if let Some(range) = self.hidden_fold(self.cursor.row) {
             self.cursor.row = range.start;
+        }
+        if self.folded_range(self.cursor.row).is_some() {
+            self.cursor.col = 0;
         }
         self.structural_revision = self.structural_revision.wrapping_add(1);
         self.clamp();
