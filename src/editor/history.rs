@@ -17,6 +17,7 @@ impl Editor {
                     self.visual_linewise = false;
                     self.visual_blockwise = true;
                     self.pending = None;
+                    self.pending_operator = None;
                     self.count.clear();
                 }
             }
@@ -26,6 +27,7 @@ impl Editor {
                 let n = self.count.parse::<usize>().unwrap_or(1).clamp(1, 10000);
                 self.count.clear();
                 self.pending = None;
+                self.pending_operator = None;
                 self.move_by(0, if key == 'n' { 1 } else { -1 }, n);
             }
             (Mode::Command | Mode::Search, 'n' | 'p') => self.browse_history(key == 'p'),

@@ -445,6 +445,7 @@ impl Editor {
             ) {
                 self.message = "Directory listing is read-only · Enter opens entries".into();
                 self.pending = None;
+                self.pending_operator = None;
                 self.count.clear();
                 return;
             }
@@ -478,6 +479,32 @@ impl Editor {
         let n = self.count.parse::<usize>().unwrap_or(1).clamp(1, 10000);
         if let Some(pending) = self.pending.take() {
             self.count.clear();
+            if let Some((operator, operator_count)) = self.pending_operator.take() {
+                let total = operator_count.saturating_mul(n).min(10000);
+                if pending == operator {
+                    if key == operator {
+                        if operator == 'd' {
+                            self.remember_normal_change(total, &['d', 'd']);
+                        }
+                        self.line_action(operator == 'd', total);
+                    } else if matches!(key, 'i' | 'a') {
+                        self.pending = Some(key);
+                        self.pending_operator = Some((operator, total));
+                    }
+                } else if matches!(pending, 'i' | 'a') && self.mode == Mode::Normal {
+                    let origin = self.cursor;
+                    if self.select_text_object(key, pending == 'a', total) {
+                        self.visual_action(operator == 'd');
+                        if operator == 'd' {
+                            self.remember_normal_change(total, &[operator, pending, key]);
+                        } else {
+                            self.cursor = origin;
+                            self.clamp();
+                        }
+                    }
+                }
+                return;
+            }
             if pending == 'g' && matches!(key, 'u' | 'U') {
                 let operation = if key == 'u' {
                     super::case::CaseChange::Lower
@@ -539,22 +566,12 @@ impl Editor {
                 self.fold_command(key);
                 return;
             }
-            if pending == key {
-                match key {
-                    'g' => {
-                        self.cursor = Pos {
-                            row: n.saturating_sub(1).min(self.lines.len() - 1),
-                            col: 0,
-                        };
-                        self.clamp();
-                    }
-                    'd' => {
-                        self.remember_normal_change(n, &['d', 'd']);
-                        self.line_action(true, n);
-                    }
-                    'y' => self.line_action(false, n),
-                    _ => {}
-                }
+            if pending == 'g' && key == 'g' {
+                self.cursor = Pos {
+                    row: n.saturating_sub(1).min(self.lines.len() - 1),
+                    col: 0,
+                };
+                self.clamp();
             }
             return;
         }
@@ -600,7 +617,13 @@ impl Editor {
                 };
                 self.clamp();
             }
-            'g' | 'd' | 'y' | 'z' | 'm' | '\'' | '`' | 'q' | 'r' => {
+            'd' | 'y' => {
+                self.pending = Some(key);
+                self.pending_operator = Some((key, n));
+                self.count.clear();
+                return;
+            }
+            'g' | 'z' | 'm' | '\'' | '`' | 'q' | 'r' => {
                 self.pending = Some(key);
                 return;
             }

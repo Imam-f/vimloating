@@ -147,6 +147,7 @@ pub struct Editor {
     pub left: usize,
     horizontal_scroll_hold: bool,
     pub pending: Option<char>,
+    pending_operator: Option<(char, usize)>,
     pub count: String,
     marks: std::collections::HashMap<char, Pos>,
     fold_provider: Box<dyn folds::FoldProvider>,
@@ -205,6 +206,7 @@ impl Editor {
             left: 0,
             horizontal_scroll_hold: false,
             pending: None,
+            pending_operator: None,
             count: String::new(),
             marks: std::collections::HashMap::new(),
             fold_provider: Box::new(folds::IndentFoldProvider),
@@ -355,6 +357,7 @@ impl Editor {
         self.visual_linewise = false;
         self.visual_blockwise = false;
         self.pending = None;
+        self.pending_operator = None;
         self.count.clear();
         self.prompt.clear();
         self.completion_cycle = None;

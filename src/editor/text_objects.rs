@@ -87,12 +87,17 @@ fn tag_pairs(chars: &[(super::Pos, char)]) -> Vec<(usize, usize, usize, usize)> 
 }
 
 impl Editor {
-    pub(super) fn select_text_object(&mut self, object: char, around: bool, count: usize) {
+    pub(super) fn select_text_object(&mut self, object: char, around: bool, count: usize) -> bool {
         let chars = self.source_chars();
         let Some(origin) = chars.iter().position(|entry| entry.0 == self.cursor) else {
-            return;
+            self.message = "No text object here".into();
+            return false;
         };
-        let (selected_a, selected_b) = self.selection();
+        let (selected_a, selected_b) = if self.mode == Mode::Visual {
+            self.selection()
+        } else {
+            (self.cursor, self.cursor)
+        };
         let selected_start = chars
             .iter()
             .position(|entry| entry.0 == selected_a)
@@ -119,6 +124,13 @@ impl Editor {
                 {
                     end += 1;
                 }
+                if around && class == 0 && end < chars.len() {
+                    let next_class = word_class(chars[end].1, object == 'W');
+                    while end < chars.len() && word_class(chars[end].1, object == 'W') == next_class
+                    {
+                        end += 1;
+                    }
+                }
                 for _ in 1..count {
                     while end < chars.len() && chars[end].1.is_whitespace() {
                         end += 1;
@@ -131,10 +143,12 @@ impl Editor {
                         end += 1;
                     }
                 }
-                if around {
+                if around && class != 0 {
                     let before = end;
+                    let end_row = chars[end - 1].0.row;
                     while end < chars.len()
-                        && chars[end].0.row == chars[origin].0.row
+                        && chars[end].0.row == end_row
+                        && chars[end].1 != '\n'
                         && chars[end].1.is_whitespace()
                     {
                         end += 1;
@@ -308,8 +322,10 @@ impl Editor {
             self.visual_blockwise = false;
             self.preferred_col = None;
             self.clamp();
+            true
         } else {
             self.message = "No text object here".into();
+            false
         }
     }
 }
