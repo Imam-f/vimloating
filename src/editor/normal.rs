@@ -463,6 +463,7 @@ impl Editor {
             return;
         }
         match key {
+            '%' => self.matching_delimiter(),
             'h' => self.move_by(-1, 0, n),
             'j' => self.move_by(0, 1, n),
             'k' => self.move_by(0, -1, n),

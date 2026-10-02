@@ -51,6 +51,7 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `;` / `,` | Repeat the last character find in the same / opposite direction |
 | `{` / `}` | Previous / next paragraph |
 | `(` / `)` | Previous / next sentence |
+| `%` | Jump between matching (), [] or {} delimiters, across lines; ignores quoted text and C-style comments |
 | `0` `^` `$` | Line start / first nonblank / line end |
 | `H` / `M` / `L` | First nonblank on the top / middle / bottom visible line |
 | `gg` / `G` | First / last line |
@@ -132,7 +133,6 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 ## TODO
 
 - Change (`c`) command
-- Move between block delim
 - Select text block
 - Selection based command mode
 - Visual feedback when yanking
@@ -163,6 +163,7 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 - Ctrl+N / Ctrl+P line movement and command/search history
 - Command mode shortcuts: Ctrl+C, q:, q/
 - Replace with r
+- Move between block delimiters with %
 
 ## Development
 

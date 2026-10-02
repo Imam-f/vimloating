@@ -3,6 +3,7 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 
 pub mod buffers;
+mod delimiters;
 mod editing;
 mod files;
 pub mod folds;

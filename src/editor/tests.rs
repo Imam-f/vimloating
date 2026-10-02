@@ -2,6 +2,25 @@ use super::*;
 use std::fs;
 
 #[test]
+fn percent_matches_nested_multiline_delimiters_and_ignores_strings_and_comments() {
+    let mut e = Editor::new("λ call({\n  \"}\"; /* } */ [value]\n})", None);
+    e.normal_key('%');
+    assert_eq!(e.cursor, Pos { row: 2, col: 1 });
+    e.normal_key('%');
+    assert_eq!(e.cursor, Pos { row: 0, col: 6 });
+    e.cursor.col = 7;
+    e.normal_key('%');
+    assert_eq!(e.cursor, Pos { row: 2, col: 0 });
+    e.cursor = Pos { row: 1, col: 15 };
+    e.normal_key('%');
+    assert_eq!(e.cursor, Pos { row: 1, col: 21 });
+    let mut invalid = Editor::new("(unclosed", None);
+    invalid.normal_key('%');
+    assert_eq!(invalid.cursor, Pos::default());
+    assert!(invalid.message.contains("No matching"));
+}
+
+#[test]
 fn replace_supports_unicode_counts_undo_dot_and_insufficient_characters() {
     let mut e = Editor::new("abcdef", None);
     for key in "2rλ".chars() {
