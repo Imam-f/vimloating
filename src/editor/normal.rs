@@ -1,4 +1,4 @@
-use super::{BufferAction, CharFind, Editor, Mode, Pos};
+use super::{BufferAction, CharFind, Editor, InsertAction, Mode, Pos, RepeatChange};
 use std::collections::HashMap;
 
 impl Editor {
@@ -154,9 +154,87 @@ impl Editor {
         }
     }
 
+    fn repeat_char_find_opposite(&mut self, n: usize) {
+        if let Some(last) = self.last_char_find {
+            self.find_char(last.target, -last.direction, last.till, n);
+            self.last_char_find = Some(last);
+        }
+    }
+
+    fn remember_normal_change(&mut self, count: usize, keys: &[char]) {
+        if self.replaying_change {
+            return;
+        }
+        let mut sequence = Vec::new();
+        if count > 1 {
+            sequence.extend(count.to_string().chars());
+        }
+        sequence.extend_from_slice(keys);
+        self.last_change = Some(RepeatChange::Normal(sequence));
+    }
+
+    fn repeat_last_change(&mut self, count: usize) {
+        let Some(change) = self.last_change.clone() else {
+            return;
+        };
+        for _ in 0..count {
+            self.replaying_change = true;
+            match &change {
+                RepeatChange::Normal(keys) => {
+                    for &key in keys {
+                        self.normal_key(key);
+                    }
+                }
+                RepeatChange::Insert { entry, actions } => {
+                    self.begin_insert(*entry);
+                    for action in actions {
+                        match action {
+                            InsertAction::Character(ch) => self.insert_char(*ch),
+                            InsertAction::Newline => self.newline(),
+                            InsertAction::Backspace => self.backspace(),
+                            InsertAction::DeleteForward => self.delete_forward(),
+                            InsertAction::DeletePreviousWord => self.delete_prev_word(),
+                            InsertAction::Tab => self.insert_text("\t"),
+                        }
+                    }
+                    self.escape();
+                }
+                RepeatChange::Indent(increase) => self.change_indent(*increase),
+                RepeatChange::MoveLine(direction) => self.move_line(*direction),
+                RepeatChange::VisualDelete {
+                    linewise,
+                    row_delta,
+                    col_delta,
+                } => {
+                    self.mode = Mode::Visual;
+                    self.visual_linewise = *linewise;
+                    self.anchor = self.cursor;
+                    self.cursor.row = self
+                        .cursor
+                        .row
+                        .saturating_add(*row_delta)
+                        .min(self.lines.len() - 1);
+                    if !linewise {
+                        self.cursor.col = self.cursor.col.saturating_add_signed(*col_delta);
+                    }
+                    self.clamp();
+                    self.normal_key('d');
+                }
+            }
+            self.replaying_change = false;
+        }
+    }
+
     fn visual_action(&mut self, delete: bool) {
         self.touch();
         let (a, b) = self.selection();
+        if delete && !self.replaying_change {
+            self.last_change = Some(RepeatChange::VisualDelete {
+                linewise: self.visual_linewise,
+                row_delta: b.row - a.row,
+                col_delta: b.col as isize - a.col as isize,
+            });
+        }
         self.register.clear();
         if self.visual_linewise {
             self.register
@@ -309,7 +387,10 @@ impl Editor {
                         };
                         self.clamp();
                     }
-                    'd' => self.line_action(true, n),
+                    'd' => {
+                        self.remember_normal_change(n, &['d', 'd']);
+                        self.line_action(true, n);
+                    }
                     'y' => self.line_action(false, n),
                     _ => {}
                 }
@@ -368,6 +449,7 @@ impl Editor {
             }
             'i' | 'a' | 'I' | 'A' | 'o' | 'O' => self.begin_insert(key),
             'x' => {
+                self.remember_normal_change(n, &['x']);
                 self.checkpoint();
                 self.touch();
                 let row = self.cursor.row;
@@ -378,6 +460,7 @@ impl Editor {
             }
             'X' => {
                 if self.cursor.col > 0 {
+                    self.remember_normal_change(n, &['X']);
                     self.checkpoint();
                     self.touch();
                     let row = self.cursor.row;
@@ -389,13 +472,19 @@ impl Editor {
                 }
             }
             'D' => {
+                self.remember_normal_change(n, &['D']);
                 self.checkpoint();
                 self.touch();
                 self.register = vec![self.lines[self.cursor.row].split_off(self.cursor.col)];
                 self.linewise = false;
                 self.clamp();
             }
-            'p' | 'P' => self.paste(key == 'P', n),
+            'p' | 'P' => {
+                if !self.register.is_empty() {
+                    self.remember_normal_change(n, &[key]);
+                }
+                self.paste(key == 'P', n);
+            }
             'u' => {
                 for _ in 0..n {
                     self.undo(false);
@@ -437,6 +526,8 @@ impl Editor {
                 self.find_repeat(backwards, n);
             }
             ';' => self.repeat_char_find(n),
+            ',' => self.repeat_char_find_opposite(n),
+            '.' => self.repeat_last_change(n),
             _ => {}
         }
         self.count.clear();

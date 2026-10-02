@@ -448,7 +448,7 @@ impl Editor {
                 }
             }
             "help" => {
-                self.message = "hjkl · w/b/e · f/F/t/T + char (word hint) · ; repeat · gg/G · zz · i/a/o · / ? search · n/N repeat · :.!cmd · :bn/:bp".into()
+                self.message = "hjkl · w/b/e · f/F/t/T + char · ;/, repeat · . repeat change · gg/G · zz · i/a/o · / ? search · n/N repeat · :.!cmd · :bn/:bp".into()
             }
             "noh" | "nohlsearch" => self.search.clear(),
             _ => {

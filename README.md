@@ -47,7 +47,7 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `w` `b` `e` | Next word / previous word / word end |
 | `f{char}` / `F{char}` | Find next / previous matching character on the line; pressing `f` / `F` highlights and underlines a suggested letter in every following / previous word |
 | `t{char}` / `T{char}` | Move just before / after the next / previous matching character; `t` / `T` show the same word-target hints |
-| `;` | Repeat the last character find in the same direction |
+| `;` / `,` | Repeat the last character find in the same / opposite direction |
 | `{` / `}` | Previous / next paragraph |
 | `(` / `)` | Previous / next sentence |
 | `0` `^` `$` | Line start / first nonblank / line end |
@@ -64,9 +64,11 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `o` in Visual mode | Switch the active end of the selection |
 | `d` / `x` / `y` in Visual mode | Delete / delete / yank the selection; line selections paste as lines |
 | `<` / `>` | Unindent / indent the current line, or every selected line in Visual mode |
+| `Alt+H` / `Alt+L` | Unindent / indent the current line, or every selected line in Visual mode |
 | `Alt+J` / `Alt+K` | Move the current line (or the selected lines) down / up, re-indenting to match |
 | `zz` | Center the cursor line in the view |
 | `u` / `Ctrl+R` | Undo / redo |
+| `.` | Repeat the last change |
 | `Ctrl+C` | Return to Normal from any mode (same as `Esc`) |
 | `/pattern` / `?pattern`, `Enter` | Search forward / backward with live highlights and wraparound |
 | `n` / `N` | Repeat in the last search direction / opposite direction |

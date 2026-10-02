@@ -32,6 +32,49 @@ fn counted_delete_and_linewise_paste() {
 }
 
 #[test]
+fn dot_repeats_counted_deletes_and_insert_sessions() {
+    let mut e = Editor::new("abcdef", None);
+    for key in "2x".chars() {
+        e.normal_key(key);
+    }
+    e.normal_key('.');
+    assert_eq!(e.text(), "ef");
+
+    let mut e = Editor::new("one\none", None);
+    e.begin_insert('i');
+    e.insert_text("X");
+    e.escape();
+    e.cursor = Pos { row: 1, col: 0 };
+    e.normal_key('.');
+    assert_eq!(e.text(), "Xone\nXone");
+
+    let mut e = Editor::new("one\ntwo\nthree", None);
+    e.normal_key('d');
+    e.normal_key('d');
+    e.normal_key('.');
+    assert_eq!(e.text(), "three");
+
+    let mut e = Editor::new("value", None);
+    e.normal_key('>');
+    e.normal_key('.');
+    assert_eq!(e.text(), "        value");
+}
+
+#[test]
+fn dot_repeats_a_visual_delete_with_the_same_selection_shape() {
+    let mut e = Editor::new("abcd\nefgh\nijkl\nmnop", None);
+    e.cursor = Pos { row: 0, col: 1 };
+    e.normal_key('v');
+    e.cursor = Pos { row: 1, col: 2 };
+    e.normal_key('d');
+    assert_eq!(e.text(), "ah\nijkl\nmnop");
+
+    e.cursor = Pos { row: 1, col: 1 };
+    e.normal_key('.');
+    assert_eq!(e.text(), "ah\nip");
+}
+
+#[test]
 fn single_angle_brackets_indent_and_unindent_the_current_line() {
     let mut e = Editor::new("  value\nnext", None);
     e.cursor = Pos { row: 0, col: 3 };
@@ -251,6 +294,19 @@ fn character_find_motions_repeat_and_highlight_the_matched_target() {
     e.normal_key('a');
     assert_eq!(e.cursor, Pos { row: 0, col: 5 });
     assert_eq!(e.char_find_highlight, Some(Pos { row: 0, col: 4 }));
+}
+
+#[test]
+fn comma_repeats_a_character_find_in_the_opposite_direction() {
+    let mut e = Editor::new("a x a y a", None);
+    e.normal_key('f');
+    e.normal_key('a');
+    assert_eq!(e.cursor.col, 4);
+
+    e.normal_key(',');
+    assert_eq!(e.cursor.col, 0);
+    e.normal_key(';');
+    assert_eq!(e.cursor.col, 4);
 }
 
 #[test]

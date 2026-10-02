@@ -222,6 +222,16 @@ pub fn handle_keyboard(
     }
     let alt = is_key_down(KeyCode::LeftAlt) || is_key_down(KeyCode::RightAlt);
     if alt && matches!(editor.mode, Mode::Normal | Mode::Visual) {
+        if is_key_pressed(KeyCode::H) {
+            *vertical_motion = None;
+            editor.change_indent(false);
+            return;
+        }
+        if is_key_pressed(KeyCode::L) {
+            *vertical_motion = None;
+            editor.change_indent(true);
+            return;
+        }
         if is_key_pressed(KeyCode::J) {
             *vertical_motion = None;
             editor.move_line(1);

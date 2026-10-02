@@ -48,6 +48,32 @@ struct CharFind {
     till: bool,
 }
 
+#[derive(Clone)]
+pub(super) enum InsertAction {
+    Character(char),
+    Newline,
+    Backspace,
+    DeleteForward,
+    DeletePreviousWord,
+    Tab,
+}
+
+#[derive(Clone)]
+enum RepeatChange {
+    Normal(Vec<char>),
+    Insert {
+        entry: char,
+        actions: Vec<InsertAction>,
+    },
+    Indent(bool),
+    MoveLine(isize),
+    VisualDelete {
+        linewise: bool,
+        row_delta: usize,
+        col_delta: isize,
+    },
+}
+
 struct DisplayCache {
     revision: u64,
     cols: usize,
@@ -109,6 +135,9 @@ pub struct Editor {
     linewise: bool,
     preferred_col: Option<usize>,
     last_char_find: Option<CharFind>,
+    last_change: Option<RepeatChange>,
+    insert_recording: Option<(char, Vec<InsertAction>)>,
+    replaying_change: bool,
     search_task: Option<SearchTask>,
     directory_entries: Option<Vec<PathBuf>>,
     completion_cycle: Option<CompletionCycle>,
@@ -150,6 +179,9 @@ impl Editor {
             linewise: true,
             preferred_col: None,
             last_char_find: None,
+            last_change: None,
+            insert_recording: None,
+            replaying_change: false,
             search_task: None,
             directory_entries: None,
             completion_cycle: None,
@@ -205,6 +237,14 @@ impl Editor {
         self.redo.clear();
     }
 
+    pub(super) fn record_insert_action(&mut self, action: InsertAction) {
+        if !self.replaying_change
+            && let Some((_, actions)) = self.insert_recording.as_mut()
+        {
+            actions.push(action);
+        }
+    }
+
     pub fn undo(&mut self, redo: bool) {
         self.search_task = None;
         let state = if redo {
@@ -241,6 +281,11 @@ impl Editor {
 
     pub fn escape(&mut self) {
         self.horizontal_scroll_hold = false;
+        if !self.replaying_change
+            && let Some((entry, actions)) = self.insert_recording.take()
+        {
+            self.last_change = Some(RepeatChange::Insert { entry, actions });
+        }
         self.search_task = None;
         self.char_find_hints.clear();
         if matches!(self.mode, Mode::ShellOutput | Mode::BufferList) {

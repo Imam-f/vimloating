@@ -182,7 +182,10 @@ fn main() {
 //   Esc            return to normal mode
 //   h j k l        move left, down, up, right
 //   w b e          move by word
+//   f/t + char     find / till; F/T backward; ; / , repeat
+//   .              repeat the last change
 //   > / <          indent / unindent current line or visual selection
+//   Alt+L / H      indent / unindent current line or visual selection
 //   Alt+J / K      move line(s) down / up; match previous nonblank indentation
 //   gg / G         first / last line
 //   dd / yy / p    delete / yank / paste a line

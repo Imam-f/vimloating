@@ -1,10 +1,13 @@
-use super::Editor;
+use super::{Editor, InsertAction, RepeatChange};
 
 const INDENT_WIDTH: usize = 4;
 
 impl Editor {
     pub fn begin_insert(&mut self, key: char) {
         self.horizontal_scroll_hold = false;
+        if !self.replaying_change {
+            self.insert_recording = Some((key, Vec::new()));
+        }
         self.touch();
         self.checkpoint();
         let row = self.cursor.row;
@@ -39,6 +42,7 @@ impl Editor {
     pub fn insert_char(&mut self, ch: char) {
         self.horizontal_scroll_hold = false;
         if !ch.is_control() {
+            self.record_insert_action(InsertAction::Character(ch));
             self.touch();
             self.lines[self.cursor.row].insert(self.cursor.col, ch);
             self.cursor.col += 1;
@@ -51,12 +55,14 @@ impl Editor {
         for ch in normalized.chars() {
             match ch {
                 '\n' => {
+                    self.record_insert_action(InsertAction::Newline);
                     let tail = self.lines[self.cursor.row].split_off(self.cursor.col);
                     self.cursor.row += 1;
                     self.cursor.col = 0;
                     self.lines.insert(self.cursor.row, tail);
                 }
                 '\t' => {
+                    self.record_insert_action(InsertAction::Tab);
                     self.lines[self.cursor.row].insert(self.cursor.col, '\t');
                     self.cursor.col += 1;
                 }
@@ -67,6 +73,7 @@ impl Editor {
 
     pub fn newline(&mut self) {
         self.horizontal_scroll_hold = false;
+        self.record_insert_action(InsertAction::Newline);
         self.touch();
         let indent: Vec<char> = self.lines[self.cursor.row]
             .iter()
@@ -84,6 +91,7 @@ impl Editor {
 
     pub fn backspace(&mut self) {
         self.horizontal_scroll_hold = false;
+        self.record_insert_action(InsertAction::Backspace);
         self.touch();
         if self.cursor.col > 0 {
             self.cursor.col -= 1;
@@ -97,6 +105,7 @@ impl Editor {
     }
 
     pub fn delete_prev_word(&mut self) {
+        self.record_insert_action(InsertAction::DeletePreviousWord);
         self.touch();
         let row = self.cursor.row;
         let col = self.cursor.col;
@@ -136,6 +145,7 @@ impl Editor {
 
     pub fn delete_forward(&mut self) {
         self.horizontal_scroll_hold = false;
+        self.record_insert_action(InsertAction::DeleteForward);
         self.touch();
         let row = self.cursor.row;
         if self.cursor.col < self.lines[row].len() {
@@ -179,6 +189,10 @@ impl Editor {
             .collect();
         if changes.is_empty() {
             return;
+        }
+
+        if !self.replaying_change {
+            self.last_change = Some(RepeatChange::Indent(increase));
         }
 
         self.checkpoint();
@@ -236,6 +250,9 @@ impl Editor {
         self.cursor.row = target;
         self.preferred_col = None;
         self.horizontal_scroll_hold = false;
+        if !self.replaying_change {
+            self.last_change = Some(RepeatChange::MoveLine(direction));
+        }
 
         let previous_indent = (0..target)
             .rev()
@@ -287,6 +304,9 @@ impl Editor {
             self.lines[start..=end + 1].rotate_right(1);
         } else {
             self.lines[start - 1..=end].rotate_left(1);
+        }
+        if !self.replaying_change {
+            self.last_change = Some(RepeatChange::MoveLine(direction));
         }
         self.cursor.row = self.cursor.row.saturating_add_signed(direction);
         self.anchor.row = self.anchor.row.saturating_add_signed(direction);
