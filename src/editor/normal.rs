@@ -231,6 +231,24 @@ impl Editor {
     fn visual_action(&mut self, delete: bool) {
         self.touch();
         let (a, b) = self.selection();
+        if !delete {
+            let ranges = (a.row..=b.row)
+                .map(|row| {
+                    let start = if self.visual_linewise || row != a.row {
+                        0
+                    } else {
+                        a.col
+                    };
+                    let end = if self.visual_linewise || row != b.row {
+                        self.lines[row].len().max(1)
+                    } else {
+                        b.col + 1
+                    };
+                    (row, start..end)
+                })
+                .collect();
+            self.blink_yank(ranges, self.visual_linewise);
+        }
         if delete && !self.replaying_change {
             self.last_change = Some(RepeatChange::VisualDelete {
                 linewise: self.visual_linewise,
@@ -291,6 +309,12 @@ impl Editor {
     fn line_action(&mut self, delete: bool, n: usize) {
         self.touch();
         let end = (self.cursor.row + n).min(self.lines.len());
+        if !delete {
+            let ranges = (self.cursor.row..end)
+                .map(|row| (row, 0..self.lines[row].len().max(1)))
+                .collect();
+            self.blink_yank(ranges, true);
+        }
         self.register = self.lines[self.cursor.row..end].to_vec();
         self.linewise = true;
         if delete {

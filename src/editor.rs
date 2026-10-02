@@ -12,6 +12,7 @@ mod normal;
 mod replace;
 mod text_objects;
 mod viewport;
+mod yank;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Pos {
@@ -142,6 +143,7 @@ pub struct Editor {
     history_draft: String,
     pub command_window: Option<Box<Editor>>,
     command_window_search: bool,
+    yank_highlight: Option<yank::YankHighlight>,
     pub quit: bool,
     pub force_quit: bool,
     undo: Vec<Snapshot>,
@@ -195,6 +197,7 @@ impl Editor {
             history_draft: String::new(),
             command_window: None,
             command_window_search: false,
+            yank_highlight: None,
             quit: false,
             force_quit: false,
             undo: vec![],
@@ -224,6 +227,7 @@ impl Editor {
 
     /// Marks the buffer contents as changed so the display-row index is rebuilt lazily.
     pub(super) fn touch(&mut self) {
+        self.yank_highlight = None;
         // Edits open folds so source ranges cannot become stale after line changes.
         self.closed_folds.clear();
         self.structural_revision = self.structural_revision.wrapping_add(1);

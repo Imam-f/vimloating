@@ -138,7 +138,6 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 
 - Change (`c`) command
 - Selection based command mode
-- Visual feedback when yanking
 - Insert mode control
 - Upper/lower case
 - Next/Prev word under cursor
@@ -167,6 +166,7 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 - Replace with r
 - Move between block delimiters with %
 - Select text blocks with inner/around Visual text objects
+- Visual feedback when yanking (copied area blinks briefly)
 
 ## Development
 

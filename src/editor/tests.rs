@@ -2,6 +2,32 @@ use super::*;
 use std::fs;
 
 #[test]
+fn yank_blinks_only_copied_ranges_and_expires_without_editing_the_buffer() {
+    let mut e = Editor::new("abcd\nefgh", None);
+    e.cursor.col = 1;
+    e.normal_key('v');
+    e.cursor = Pos { row: 1, col: 2 };
+    e.normal_key('y');
+    let highlight = e.yank_highlight.as_ref().unwrap();
+    assert_eq!(highlight.ranges, vec![(0, 1..4), (1, 0..3)]);
+    assert!(highlight.visible_at(0.01));
+    assert!(!highlight.visible_at(0.15));
+    assert!(highlight.visible_at(0.25));
+    assert!(!highlight.visible_at(0.65));
+    assert!(!e.dirty());
+    assert!(e.undo.is_empty());
+    e.normal_key('x');
+    assert!(e.yank_highlight.is_none());
+    let mut e = Editor::new("a\n\nb", None);
+    for key in "2yy".chars() {
+        e.normal_key(key);
+    }
+    let highlight = e.yank_highlight.as_ref().unwrap();
+    assert!(highlight.linewise);
+    assert_eq!(highlight.ranges, vec![(0, 0..1), (1, 0..1)]);
+}
+
+#[test]
 fn visual_word_and_block_objects_yank_and_expand_nested_selections() {
     let mut e = Editor::new("λ word tail", None);
     e.cursor.col = 4;

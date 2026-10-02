@@ -302,6 +302,25 @@ pub fn draw_buffer(
         } else {
             "   ↪".into()
         };
+        if editor.yank_blink_line(row) {
+            ui_rectangle(
+                TEXT_X,
+                y,
+                cols as f32 * cell_width,
+                line_height - 1.0,
+                palette.search,
+                scale,
+            );
+        } else if line.is_empty() && editor.yank_blink_cell(Pos { row, col: 0 }) {
+            ui_rectangle(
+                TEXT_X,
+                y,
+                cell_width,
+                line_height - 1.0,
+                palette.search,
+                scale,
+            );
+        }
         ui_label(
             &num,
             18.0,
@@ -339,6 +358,9 @@ pub fn draw_buffer(
                 ui_rectangle(x, y, cell_width, line_height - 1.0, palette.search, scale);
             }
             let position = Pos { row, col };
+            if editor.yank_blink_cell(position) {
+                ui_rectangle(x, y, cell_width, line_height - 1.0, palette.search, scale);
+            }
             let is_find_hint = editor.char_find_hints.binary_search(&position).is_ok();
             let is_find_target = editor.char_find_highlight == Some(position);
             if is_find_hint || is_find_target {
