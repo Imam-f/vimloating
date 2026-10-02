@@ -69,6 +69,7 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `Alt+H` / `Alt+L` | Unindent / indent the current line, or every selected line in Visual mode |
 | `Alt+J` / `Alt+K` | Move the current line (or the selected lines) down / up, re-indenting to match |
 | `zz` | Center the cursor line in the view |
+| `zc` / `zo` / `za` / `zM` / `zR` | Close / open / toggle an indentation fold / close all / open all; edits open folds |
 | `u` / `Ctrl+R` | Undo / redo |
 | `.` | Repeat the last change |
 | `Ctrl+C` | Return to Normal from any mode (same as `Esc`) |
@@ -127,7 +128,6 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 
 ## TODO
 
-- Folds
 - Command mode shortcut
 - Change (`c`) command
 - Move between block delim
@@ -157,6 +157,7 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 ## Done
 
 - Marks (buffer-local letter marks)
+- Indentation folds (replaceable fold provider for future Tree-sitter support)
 
 ## Development
 

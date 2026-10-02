@@ -207,6 +207,13 @@ impl Editor {
         let cols = cols.max(1);
         let mut rows = Vec::new();
         for (row, line) in self.lines.iter().enumerate() {
+            if self.hidden_fold(row).is_some() {
+                continue;
+            }
+            if self.folded_range(row).is_some() {
+                rows.push((row, 0));
+                continue;
+            }
             if !wrap || line.is_empty() {
                 rows.push((row, 0));
             } else {
@@ -222,6 +229,12 @@ impl Editor {
     }
 
     fn line_segment_count(&self, row: usize, cols: usize, wrap: bool, insert_mode: bool) -> usize {
+        if self.hidden_fold(row).is_some() {
+            return 0;
+        }
+        if self.folded_range(row).is_some() {
+            return 1;
+        }
         let line = &self.lines[row];
         if !wrap || line.is_empty() {
             1
@@ -267,6 +280,16 @@ impl Editor {
 
     /// Absolute display-row index of a cursor position, without scanning the whole buffer.
     pub fn display_index(&self, pos: Pos, cols: usize, wrap: bool) -> usize {
+        let pos = if let Some(range) = self.hidden_fold(pos.row) {
+            Pos {
+                row: range.start,
+                col: 0,
+            }
+        } else if self.folded_range(pos.row).is_some() {
+            Pos { col: 0, ..pos }
+        } else {
+            pos
+        };
         let cols = cols.max(1);
         self.ensure_display(cols, wrap);
         let cache = self.display_cache.borrow();
@@ -330,6 +353,7 @@ impl Editor {
     }
 
     pub fn reveal_cursor(&mut self, rows: usize, cols: usize, wrap: bool) {
+        self.reveal_fold();
         let rows = rows.max(1);
         let cols = cols.max(1);
         let row_index = self.display_index(self.cursor, cols, wrap);

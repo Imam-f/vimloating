@@ -242,7 +242,19 @@ pub fn draw_buffer(
             ui_label("~", 48.0, y + baseline, 23, palette.gutter, font, scale);
             continue;
         };
-        let line = &editor.lines[row];
+        let folded_line;
+        let line = if let Some(range) = editor.folded_range(row) {
+            folded_line = format!(
+                "+-- {} lines: {}",
+                range.end - range.start + 1,
+                editor.lines[row].iter().collect::<String>().trim()
+            )
+            .chars()
+            .collect::<Vec<_>>();
+            &folded_line
+        } else {
+            &editor.lines[row]
+        };
         let visible_start = segment_start + if word_wrap { 0 } else { editor.left };
         let visible_end = (visible_start + cols).min(line.len());
         let highlighted_cells = has_search

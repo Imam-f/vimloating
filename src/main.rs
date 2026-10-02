@@ -50,6 +50,7 @@ async fn main() {
         Editor::new(WELCOME, None)
     };
     let user_config = load_user_config();
+    editor.set_fold_provider(Box::new(editor::folds::IndentFoldProvider));
     editor.theme = user_config.theme.unwrap_or_default();
     let mut buffers = BufferList::new(editor);
 

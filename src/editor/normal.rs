@@ -404,6 +404,10 @@ impl Editor {
         let n = self.count.parse::<usize>().unwrap_or(1).clamp(1, 10000);
         if let Some(pending) = self.pending.take() {
             self.count.clear();
+            if pending == 'z' {
+                self.fold_command(key);
+                return;
+            }
             if pending == key {
                 match key {
                     'g' => {

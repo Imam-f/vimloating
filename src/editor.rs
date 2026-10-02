@@ -5,6 +5,7 @@ use std::path::PathBuf;
 pub mod buffers;
 mod editing;
 mod files;
+pub mod folds;
 mod normal;
 mod viewport;
 
@@ -128,6 +129,8 @@ pub struct Editor {
     pub pending: Option<char>,
     pub count: String,
     marks: std::collections::HashMap<char, Pos>,
+    fold_provider: Box<dyn folds::FoldProvider>,
+    closed_folds: Vec<folds::FoldRange>,
     pub quit: bool,
     pub force_quit: bool,
     undo: Vec<Snapshot>,
@@ -173,6 +176,8 @@ impl Editor {
             pending: None,
             count: String::new(),
             marks: std::collections::HashMap::new(),
+            fold_provider: Box::new(folds::IndentFoldProvider),
+            closed_folds: Vec::new(),
             quit: false,
             force_quit: false,
             undo: vec![],
@@ -202,6 +207,8 @@ impl Editor {
 
     /// Marks the buffer contents as changed so the display-row index is rebuilt lazily.
     pub(super) fn touch(&mut self) {
+        // Edits open folds so source ranges cannot become stale after line changes.
+        self.closed_folds.clear();
         self.structural_revision = self.structural_revision.wrapping_add(1);
     }
 
@@ -273,6 +280,7 @@ impl Editor {
 
     pub fn clamp(&mut self) {
         self.cursor.row = self.cursor.row.min(self.lines.len() - 1);
+        self.reveal_fold();
         let len = self.lines[self.cursor.row].len();
         let max = if self.mode == Mode::Insert {
             len
@@ -313,11 +321,16 @@ impl Editor {
         self.char_find_hints.clear();
         if dy != 0 {
             let col = *self.preferred_col.get_or_insert(self.cursor.col);
-            self.cursor.row = self
-                .cursor
-                .row
-                .saturating_add_signed(dy * n as isize)
-                .min(self.lines.len() - 1);
+            for _ in 0..n.saturating_mul(dy.unsigned_abs()) {
+                let row = if dy > 0 {
+                    self.folded_range(self.cursor.row)
+                        .map_or(self.cursor.row + 1, |r| r.end + 1)
+                } else {
+                    self.cursor.row.saturating_sub(1)
+                };
+                let row = row.min(self.lines.len() - 1);
+                self.cursor.row = self.hidden_fold(row).map_or(row, |r| r.start);
+            }
             self.cursor.col = col;
         } else {
             self.preferred_col = None;
