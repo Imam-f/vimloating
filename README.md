@@ -143,17 +143,16 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 
 ## TODO
 
-- Change (`c`) command
 - Selection based command mode
 - Insert mode control
 - Outline
 - More Vim options
 - Fuzzy finder / command palette
 - 3D control with keyboard
-- CLI command
-- TUI mode
+- CLI command for TUI mode
 - LSP support
 - Completion
+- Hover
 - Tree-sitter support
 - Full screen mode
 - Walk around mode
