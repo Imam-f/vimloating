@@ -33,7 +33,7 @@ Pass a directory to start in the file browser. A missing file opens a new empty 
 
 The TUI shares the desktop editor's Vim motions, counts, insert/visual modes, text objects and operators, block selections, marks, indentation folds, yank feedback, command/search history windows, undo/redo, live search highlights, character-find hints, buffers, file commands, directory browser, shell commands, themes, and unsaved-change protection. It includes line numbers, syntax colors, wrapping, a status line, and a command/search prompt. Terminal resizing updates the viewport. In shell output, buffer lists, and F1 help, use `j`/`k`, arrows, PageUp/PageDown, or Home/End to scroll; Esc returns to editing.
 
-Use your terminal's paste shortcut in Insert mode. On terminals that report bracketed-paste events, multiline text is inserted literally without interpreting it as editor commands. Windows console paste may arrive as individual keys, with the same auto-indentation as typing. Terminal fonts and clipboard access are managed by the terminal. Some terminals encode Ctrl+H as Backspace and Ctrl+J as Enter, or reserve Ctrl+S; those shortcuts depend on your terminal's settings. In Insert mode, Ctrl+H/I/J/M also handle backspace/tab/newline encodings. The editor uses one cell per Unicode character: tabs display as `→`, while wide, zero-width, and control characters display as `�` to keep cursor positions aligned. Their original contents are preserved when saved.
+Use your terminal's paste shortcut in Insert mode. On terminals that report bracketed-paste events, multiline text is inserted literally without interpreting it as editor commands. Windows console paste may arrive as individual keys, with the same auto-indentation as typing. Terminal fonts and clipboard access are managed by the terminal. Some terminals encode Ctrl+H as Backspace and Ctrl+J as Enter, or reserve Ctrl+S; those shortcuts depend on your terminal's settings. In Insert mode, Ctrl+H moves backward without deleting, Ctrl+I inserts four spaces, and Ctrl+J/M insert an auto-indented newline. The editor uses one cell per Unicode character: tabs display as `→`, while wide, zero-width, and control characters display as `�` to keep cursor positions aligned. Their original contents are preserved when saved.
 
 The `theme` setting in `~/.vimfloating` also applies to the TUI. Both frontends can be built together with `cargo build --release --all-features`.
 
@@ -52,6 +52,8 @@ The `theme` setting in `~/.vimfloating` also applies to the TUI. Both frontends 
 | `F5` | Toggle 2D-only mode (on by default); fills the viewport and disables camera movement |
 
 The text is rendered into an offscreen OpenGL texture at 2× the window's physical pixel width (with a 3200-pixel minimum), recreated when the viewport or display scale changes. In 2D-only mode (enabled by default), that texture fills the viewport and camera movement is disabled; press `F5` to toggle it off or on. `F4` keeps its flat-only/orbit behavior in 3D, and exits 2D-only directly into orbit mode. Flat-only mode keeps the surface facing you and hides the scene frame and HUD. The floor grid starts hidden and can be shown with `F3`. Wheel zoom is deliberately gentle, and camera motion uses frame-rate-independent exponential smoothing. Mouse positioning uses a ray/plane intersection, so it continues to work when the surface is rotated.
+
+In 3D mode, moving the cursor within 24 pixels of a viewport edge or beyond it makes the camera smoothly pan to center the cursor. This also works in flat-only mode. In 2D-only mode, the editor scrolls to keep the cursor visible without moving the camera.
 
 ## Vim controls
 
@@ -72,12 +74,15 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `0` `^` `$` | Line start / first nonblank / line end |
 | `H` / `M` / `L` | First nonblank on the top / middle / bottom visible line |
 | `gg` / `G` | First / last line |
+| `gf` / `gF` | Open the file path under the cursor in a buffer; `path:line` and `path:line:column` jump to that address |
 | `m{letter}` / `` `{letter} `` / `'{letter}` | Set a buffer-local mark / jump to its position / jump to its first nonblank |
 | `12G` or `:12` | Go to line 12 |
 | `i` / `a` | Insert before / after the cursor |
 | `I` / `A` | Insert at first nonblank / line end |
 | `o` / `O` | Open a line below / above, preserving indentation |
 | `x` / `X` / `D` | Delete under cursor / before cursor / to end of line |
+| `Backspace` | Move back one character without deleting in Normal, Visual, or Insert mode, crossing to the previous line at line start; hold to repeat |
+| `Delete` in Insert mode | Delete under the cursor; hold to repeat |
 | `r{char}` | Replace characters under the cursor (with counts) or throughout a Visual selection; Enter replaces with a line break |
 | `~` / `g~~` | Toggle case of characters / whole lines (with counts), or the Visual selection; supports Unicode, undo and repeat |
 | `guu` / `gUU`, `gu` / `gU` in Visual mode | Lowercase / uppercase whole lines (with counts) or the selection |
@@ -114,10 +119,22 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `PageDown` / `PageUp` | Move a page down / up |
 | `Ctrl+S` | Save to the current filename |
 | `Ctrl+V` in Insert mode | Paste system clipboard text |
+| `Ctrl+X`, then `Ctrl+F` in Insert mode | Complete a filename or directory path; use `Ctrl+N` / `Ctrl+P` to cycle matches |
+| `Ctrl+N` / `Ctrl+P` in Insert mode | Complete a word from the current buffer, or cycle forward / backward through matches of the active completion type |
+| `Ctrl+X`, then `Ctrl+N` / `Ctrl+P` in Insert mode | Start word completion explicitly |
+| `Ctrl+X`, then `Ctrl+L` in Insert mode | Complete a whole line from the current buffer, preserving the current indentation; `Ctrl+L` or `Ctrl+N` / `Ctrl+P` cycle matches |
 | `Ctrl+W` / `Ctrl+Backspace` in Insert mode | Delete the previous word |
 | `Ctrl+-` / `Ctrl+=` | Decrease / increase font size |
 
-Counts work with movements and common operations, such as `5j`, `3w`, `2dd`, `4yy`, and `2p`. Each Insert session is one undo step. In Insert mode, Enter auto-indents, Tab inserts four spaces, and Backspace/Delete can join adjacent lines. After 15 seconds without keyboard, pointer, mouse-button, or scroll activity, Insert mode automatically returns to Normal. Vertical scroll keys keep the cursor visible, and can scroll past the end until only the final display line remains visible.
+Counts work with movements and common operations, such as `5j`, `3w`, `2dd`, `4yy`, and `2p`. Each Insert session is one undo step. In Insert mode, Enter auto-indents, Tab inserts four spaces, Backspace moves back without changing text, and Delete joins adjacent lines when at line end. Backspace at line start moves to the end of the previous line. Prompt Backspace deletes the previous character. After 15 seconds without keyboard, pointer, mouse-button, or scroll activity, Insert mode automatically returns to Normal. Vertical scroll keys keep the cursor visible, and can scroll past the end until only the final display line remains visible.
+
+Insert path completion and `gf` resolve relative paths from the current file's directory, or the working directory for an unnamed buffer. `gf` also checks the working directory if the file is not found beside the current file. Absolute paths and `~/` paths work too. Quote filenames that contain spaces in buffer text, such as `"docs/my notes.txt"`; an address can follow the closing quote (`"docs/my notes.txt":12:3`). Line and column numbers start at 1. Opening a path keeps unsaved buffers in memory. Completion appends a separator to directories; press `Ctrl+X Ctrl+F` again to complete their contents. Completion is part of the Insert session's undo and `.` repeat.
+
+Word completion matches the word prefix before the cursor using letters, numbers, and underscores, including Unicode. Whole-line completion matches text from the first nonblank character to the cursor against other lines, keeping your indentation and any text after the cursor. Buffer completions are case-sensitive and deduplicated. Typing, moving the cursor, or leaving Insert mode resets the cycle; use `Ctrl+X` followed by `Ctrl+N`/`Ctrl+P`, `Ctrl+L`, or `Ctrl+F` to select another completion type.
+
+Completion shows a popup beside the cursor with the current match highlighted and its position in the list. The popup scrolls through up to eight visible matches and moves above the cursor near the bottom of the viewport. Command-mode Tab completion also shows its matches above the prompt. Typing keeps the inserted match and dismisses the popup; Esc returns to Normal mode.
+
+Hold `Ctrl+N` / `Ctrl+P` to cycle completion matches, move through lines, or browse prompt history. Desktop arrows, Home/End, page keys, scrolling shortcuts, Backspace, Insert-mode Delete/Tab/Enter and word deletion, command Tab, font-size shortcuts, and Alt movement/indent shortcuts also repeat. Repeat starts after 350 ms and continues every 60 ms, stopping when the key is released; Ctrl shortcuts stop when Ctrl is released. Ordinary typed characters and Vim letter commands use operating-system repeat events. Insert edits stay part of the session's undo and `.` repeat. Terminal repeat timing follows your terminal or operating system.
 
 Character-find hints prefer the letter in each word requiring the fewest `;` repeats to reach; ties favor letters that occur less often in that word.
 
@@ -125,7 +142,7 @@ Word wrap is on by default. Press Enter twice quickly in Normal mode to toggle i
 
 ### Commands
 
-Type `:`, enter a command, and press Enter. Press Tab to complete command names or file paths; repeated Tab cycles through matches. Paths can contain spaces; enter them directly without quotes.
+Type `:`, enter a command, and press Enter. Press Tab to complete command names or file paths for `:e`, `:e!`, `:w`, `:wq`, `:x`, `:Ex`, and `:Explore`; repeated Tab cycles through matches. Command paths are relative to the working directory and support `~/`. Paths can contain spaces; enter them directly without quotes.
 
 | Command | Action |
 | --- | --- |
@@ -140,17 +157,20 @@ Type `:`, enter a command, and press Enter. Press Tab to complete command names 
 | `:theme everforest` | Switch to the Everforest dark palette |
 | `:theme solarized-blue` | Switch to the blue Solarized Dark palette |
 | `:theme default` | Restore the Vimfloating palette |
-| `:ls` / `:buffers` | Show the buffer list; press Esc to return |
-| `:b {id or name}` / `:buffer` | Switch to a buffer by its list number or filename |
+| `:ls` / `:buffers` / `:b` / `:buffer` | Show the buffer list; press Esc to return |
+| `:b {id or name}` / `:buffer {id or name}` | Switch to a buffer by its list ID, filename, or unique filename prefix |
 | `:bn` / `:bp` / `:bnext` / `:bprevious` | Switch to the next / previous buffer; modified buffers stay open in memory |
-| `:bd` / `:bdelete` / `:b delete` | Delete the current buffer; add `!` to discard unsaved changes |
+| `:bd [id or name]` / `:bdelete [id or name]` | Delete the specified buffer, or the current buffer when omitted; use `:bd!` / `:bdelete!` with the same optional target to discard unsaved changes |
+| `:b delete` / `:b delete!` | Delete the current buffer / discard its unsaved changes and delete it |
 | `:q` | Quit if there are no unsaved changes |
 | `:q!` | Quit and discard changes |
-| `:wq` / `:x` | Save and quit |
+| `:wq [path/to/file]` / `:x [path/to/file]` | Save and quit; an optional path saves under that filename |
 | `:noh` / `:nohlsearch` | Clear search highlighting |
 | `:help` | Show a compact bindings reminder |
 
-Closing the window also checks for unsaved changes; use `:wq` or `:q!` when needed.
+Buffer IDs are shown by `:ls`. Buffer names match the full path or just the filename, case-insensitively; use a unique prefix if you do not enter the whole name. For example, `:b notes` switches to `notes.rs` when it is the only matching buffer, and `:bd 2` deletes buffer 2. Deleting a buffer keeps its file on disk. Deleting the last buffer leaves an empty editable buffer.
+
+Closing the window also checks for unsaved changes; use `:wq` or `:q!` when needed. Quit protection checks every open buffer, so `:wq` / `:x` can save the current buffer and still refuse to exit if another buffer has unsaved changes.
 
 ## Scope
 
@@ -160,6 +180,7 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 
 ## TODO
 
+- Use leader and localleader key for something
 - Selection based command mode
 - Insert mode control
 - Outline
@@ -179,6 +200,7 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 
 ## Done
 
+- Word, line, and file/path completion in Insert mode; path completion in Command mode; `gf` / `gF` open file addresses under the cursor
 - TUI mode (optional terminal frontend)
 - Marks (buffer-local letter marks)
 - Indentation folds (replaceable fold provider for future Tree-sitter support)

@@ -174,6 +174,31 @@ impl Editor {
         }
     }
 
+    pub fn move_back_character(&mut self) {
+        if !matches!(
+            self.mode,
+            super::Mode::Normal | super::Mode::Visual | super::Mode::Insert
+        ) {
+            return;
+        }
+        if self.mode == super::Mode::Insert {
+            self.record_insert_action(InsertAction::MoveBack);
+        }
+        if self.cursor.col > 0 {
+            self.move_by(-1, 0, 1);
+        } else if self.cursor.row > 0 {
+            self.move_by(0, -1, 1);
+            let len = self.lines[self.cursor.row].len();
+            self.cursor.col = if self.mode == super::Mode::Insert {
+                len
+            } else {
+                len.saturating_sub(1)
+            };
+            self.preferred_col = None;
+            self.clamp();
+        }
+    }
+
     pub fn delete_prev_word(&mut self) {
         self.record_insert_action(InsertAction::DeletePreviousWord);
         self.touch();

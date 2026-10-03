@@ -5,7 +5,7 @@ mod view;
 use config::window_conf;
 use config::*;
 use editor::{Editor, Mode, Pos, buffers::BufferList};
-use input::{ScrollRepeat, VerticalMotion, advance_vertical_motion, handle_keyboard};
+use input::{KeyRepeat, VerticalMotion, advance_vertical_motion, handle_keyboard};
 use macroquad::prelude::*;
 use std::path::PathBuf;
 use view::View;
@@ -64,7 +64,7 @@ async fn main() {
     let mut font_size = BASE_FONT_SIZE;
     let mut last_normal_enter = None;
     let mut vertical_motion: Option<VerticalMotion> = None;
-    let mut scroll_repeat: Option<ScrollRepeat> = None;
+    let mut key_repeat: Option<KeyRepeat> = None;
     let mut last_insert_activity = get_time();
     let mut frame = 0;
     prevent_quit();
@@ -99,7 +99,7 @@ async fn main() {
             &mut font_size,
             &mut word_wrap,
             &mut vertical_motion,
-            &mut scroll_repeat,
+            &mut key_repeat,
         );
         editor.advance_search();
         if let Some(window) = editor.command_window.as_mut() {

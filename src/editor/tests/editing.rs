@@ -1,6 +1,40 @@
 use super::super::*;
 
 #[test]
+fn move_back_character_preserves_unicode_text_and_crosses_line_boundaries() {
+    let mut e = Editor::new("aé日\nz", None);
+    e.cursor = Pos { row: 1, col: 0 };
+    e.begin_insert('i');
+    for expected in [
+        Pos { row: 0, col: 3 },
+        Pos { row: 0, col: 2 },
+        Pos { row: 0, col: 1 },
+        Pos { row: 0, col: 0 },
+        Pos { row: 0, col: 0 },
+    ] {
+        e.move_back_character();
+        assert_eq!(e.cursor, expected);
+        assert_eq!(e.text(), "aé日\nz");
+        assert!(!e.dirty());
+    }
+}
+
+#[test]
+fn insert_dot_replay_preserves_backspace_movement_before_typing() {
+    let mut e = Editor::new("abc\nabc", None);
+    e.begin_insert('A');
+    e.move_back_character();
+    e.insert_char('X');
+    e.escape();
+    assert_eq!(e.text(), "abXc\nabc");
+    e.cursor = Pos { row: 1, col: 0 };
+    e.normal_key('.');
+    assert_eq!(e.text(), "abXc\nabXc");
+    e.undo(false);
+    assert_eq!(e.text(), "abXc\nabc");
+}
+
+#[test]
 fn replace_supports_unicode_counts_undo_dot_and_insufficient_characters() {
     let mut e = Editor::new("abcdef", None);
     for key in "2rλ".chars() {

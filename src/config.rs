@@ -221,6 +221,12 @@ fn main() {
 //   :theme everforest / solarized-blue  change the colors
 //   :ls             list buffers · :b 2 switches · :bn / :bp cycles · :bd deletes
 //   Ctrl+6          switch to the last active buffer
+//   gf / gF         open the path[:line[:column]] under the cursor
+//   Ctrl+X Ctrl+F   complete a file path in Insert mode; Ctrl+N / P cycle
+//   Ctrl+N / P      complete words in Insert mode; Ctrl+X Ctrl+L completes lines
+//   Completion      popup shows matches; hold Ctrl+N / P to cycle
+//   Backspace      move back one character without deleting; hold to repeat
+//   Insert: Del    delete under cursor; hold to repeat
 //   Tab             complete command names and file paths in the command prompt
 
 // Space is yours

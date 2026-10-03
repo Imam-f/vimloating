@@ -194,6 +194,7 @@ impl Editor {
                             InsertAction::Character(ch) => self.insert_char(*ch),
                             InsertAction::Newline => self.newline(),
                             InsertAction::Backspace => self.backspace(),
+                            InsertAction::MoveBack => self.move_back_character(),
                             InsertAction::DeleteForward => self.delete_forward(),
                             InsertAction::DeletePreviousWord => self.delete_prev_word(),
                             InsertAction::Tab => self.insert_text("\t"),
@@ -531,6 +532,9 @@ impl Editor {
                     col: 0,
                 };
                 self.clamp();
+            }
+            if pending == 'g' && matches!(key, 'f' | 'F') && self.mode == Mode::Normal {
+                self.open_cursor_path();
             }
             return;
         }

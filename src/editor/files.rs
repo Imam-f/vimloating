@@ -357,7 +357,7 @@ impl Editor {
         }
         let destination = path
             .filter(|s| !s.is_empty())
-            .map(PathBuf::from)
+            .map(super::paths::expand_home)
             .or_else(|| self.path.clone());
         let Some(destination) = destination else {
             self.message = "No filename · use :w path/to/file".into();
@@ -417,7 +417,7 @@ impl Editor {
                     self.message = "Usage: :e path/to/file".into();
                 } else {
                     self.buffer_action = Some(BufferAction::Open {
-                        path: PathBuf::from(arg),
+                        path: super::paths::expand_home(arg),
                         replace: cmd == "e!",
                     });
                     self.message = format!("Opening {arg}…");
@@ -425,7 +425,7 @@ impl Editor {
             }
             "Ex" | "Explore" => {
                 let directory = if !arg.is_empty() {
-                    PathBuf::from(arg)
+                    super::paths::expand_home(arg)
                 } else {
                     self.path
                         .as_deref()
@@ -480,7 +480,7 @@ impl Editor {
                 }
             }
             "help" => {
-                self.message = "hjkl · w/b/e · f/F/t/T + char · ;/, repeat · . repeat change · gg/G · zz · i/a/o · / ? search · n/N repeat · :.!cmd · :bn/:bp".into()
+                self.message = "hjkl · w/b/e · f/F/t/T + char · gf open path[:line:col] · Insert Ctrl+N/P words · Ctrl+X Ctrl+L lines / Ctrl+F paths · . repeat · / ? search · :bn/:bp".into()
             }
             "noh" | "nohlsearch" => self.search.clear(),
             _ => {
@@ -679,7 +679,7 @@ fn command_completions(prefix: &str) -> Vec<String> {
     };
 
     let command = &prefix[..command_end];
-    if !matches!(command, "e" | "e!" | "w" | "Ex" | "Explore") {
+    if !matches!(command, "e" | "e!" | "w" | "wq" | "x" | "Ex" | "Explore") {
         return Vec::new();
     }
     let rest = &prefix[command_end..];
@@ -687,38 +687,8 @@ fn command_completions(prefix: &str) -> Vec<String> {
         .find(|ch: char| !ch.is_whitespace())
         .map_or(prefix.len(), |offset| command_end + offset);
     let arg_prefix = &prefix[arg_offset..];
-    let separator = arg_prefix.rfind(['/', '\\']);
-    let (directory_prefix, name_prefix) = match separator {
-        Some(index) if index + 1 == arg_prefix.len() => (arg_prefix, ""),
-        Some(index) => (&arg_prefix[..=index], &arg_prefix[index + 1..]),
-        None => ("", arg_prefix),
-    };
-    let directory = if directory_prefix.is_empty() {
-        PathBuf::from(".")
-    } else {
-        PathBuf::from(directory_prefix)
-    };
-    let Ok(entries) = fs::read_dir(directory) else {
-        return Vec::new();
-    };
-    let mut matches = Vec::new();
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if !name.to_lowercase().starts_with(&name_prefix.to_lowercase()) {
-            continue;
-        }
-        let mut candidate = format!("{directory_prefix}{name}");
-        if entry.path().is_dir() {
-            candidate.push(if directory_prefix.contains('\\') {
-                '\\'
-            } else if directory_prefix.contains('/') {
-                '/'
-            } else {
-                std::path::MAIN_SEPARATOR
-            });
-        }
-        matches.push(format!("{}{candidate}", &prefix[..arg_offset]));
-    }
-    matches.sort_by_key(|candidate| candidate.to_lowercase());
-    matches
+    super::paths::path_completions(arg_prefix, Path::new("."))
+        .into_iter()
+        .map(|candidate| format!("{}{candidate}", &prefix[..arg_offset]))
+        .collect()
 }

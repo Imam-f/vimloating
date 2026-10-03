@@ -47,6 +47,20 @@ impl BufferList {
         let action = self.active_mut().buffer_action.take();
         match action {
             Some(BufferAction::Open { path, replace }) => self.open(path, replace),
+            Some(BufferAction::OpenAddress { path, position }) => {
+                if !same_path(self.active().path.as_deref(), Some(&path)) {
+                    self.open(path.clone(), false);
+                }
+                if same_path(self.active().path.as_deref(), Some(&path))
+                    && let Some(position) = position
+                {
+                    let editor = self.active_mut();
+                    editor.cursor = position;
+                    editor.clamp();
+                    editor.preferred_col = None;
+                    editor.follow_cursor_horizontally();
+                }
+            }
             Some(BufferAction::Next) => self.step(1),
             Some(BufferAction::Previous) => self.step(-1),
             Some(BufferAction::Last) => self.switch_last(),

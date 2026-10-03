@@ -5,6 +5,8 @@ use std::path::PathBuf;
 mod block;
 pub mod buffers;
 mod case;
+mod completion;
+pub use completion::{CompletionPopup, CompletionPopupLayout};
 mod delimiters;
 mod editing;
 mod files;
@@ -12,6 +14,7 @@ pub mod folds;
 mod history;
 mod normal;
 mod operators;
+mod paths;
 mod replace;
 mod text_objects;
 mod viewport;
@@ -36,13 +39,23 @@ pub enum Mode {
 }
 
 pub enum BufferAction {
-    Open { path: PathBuf, replace: bool },
+    Open {
+        path: PathBuf,
+        replace: bool,
+    },
+    OpenAddress {
+        path: PathBuf,
+        position: Option<Pos>,
+    },
     Next,
     Previous,
     Last,
     Select(String),
     List,
-    Delete { target: Option<String>, force: bool },
+    Delete {
+        target: Option<String>,
+        force: bool,
+    },
 }
 
 struct CompletionCycle {
@@ -63,6 +76,7 @@ pub(super) enum InsertAction {
     Character(char),
     Newline,
     Backspace,
+    MoveBack,
     DeleteForward,
     DeletePreviousWord,
     Tab,
@@ -177,6 +191,8 @@ pub struct Editor {
     search_task: Option<SearchTask>,
     directory_entries: Option<Vec<PathBuf>>,
     completion_cycle: Option<CompletionCycle>,
+    insert_completion: Option<completion::InsertCompletion>,
+    insert_completion_pending: bool,
     structural_revision: u64,
     display_cache: RefCell<DisplayCache>,
 }
@@ -236,6 +252,8 @@ impl Editor {
             search_task: None,
             directory_entries: None,
             completion_cycle: None,
+            insert_completion: None,
+            insert_completion_pending: false,
             structural_revision: 0,
             display_cache: RefCell::new(DisplayCache {
                 revision: u64::MAX,
@@ -251,6 +269,8 @@ impl Editor {
 
     /// Marks the buffer contents as changed so the display-row index is rebuilt lazily.
     pub(super) fn touch(&mut self) {
+        self.insert_completion = None;
+        self.insert_completion_pending = false;
         self.yank_highlight = None;
         // Edits open folds so source ranges cannot become stale after line changes.
         self.closed_folds.clear();
@@ -362,12 +382,16 @@ impl Editor {
         self.count.clear();
         self.prompt.clear();
         self.completion_cycle = None;
+        self.insert_completion = None;
+        self.insert_completion_pending = false;
         self.history_cursor = None;
         self.preferred_col = None;
         self.clamp();
     }
 
     pub fn move_by(&mut self, dx: isize, dy: isize, n: usize) {
+        self.insert_completion = None;
+        self.insert_completion_pending = false;
         self.horizontal_scroll_hold = false;
         self.search_task = None;
         self.char_find_hints.clear();

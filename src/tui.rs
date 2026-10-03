@@ -17,7 +17,7 @@ use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::Paragraph,
+    widgets::{Block, Borders, Clear, Paragraph},
 };
 use std::{
     io::{self, IsTerminal},
@@ -26,7 +26,7 @@ use std::{
 use unicode_width::UnicodeWidthChar;
 
 pub const WELCOME: &str = "// vimloating — terminal editor\n\n// i: insert · Esc: normal · h j k l: move · w b e: words\n// v / V: select · y / d: yank / delete · p: paste\n// u / Ctrl+R: undo / redo · / or ?: search · n / N: repeat\n// :w notes.rs: save · :e path: open · :Explore: browse\n// :ls: buffers · :bn / :bp: switch · :q: quit · :q!: discard\n// :theme everforest / solarized-blue: colors\n// Enter Enter: toggle wrap · F1: terminal controls\n\n";
-const HELP: &str = "vimloating terminal controls\n\ni / a / I / A / o / O   Insert text\nEsc / Ctrl+C           Return to Normal mode\nh j k l / arrows       Move; counts supported\nw b e · gg G · f F t T  Vim motions and character-find hints\nv / V · y d x · p P    Select, yank, delete, paste\nu / Ctrl+R             Undo / redo\n/ or ? · n / N         Search forward/backward and repeat\n:w [path] · Ctrl+S     Save\n:e path · :Explore     Open file / directory browser\n:ls · :b id · :bn :bp  List / switch buffers\nCtrl+6 / Ctrl+^        Last active buffer (terminal dependent)\n:!command · :.!command Shell output / filter current line\n:q / :q! / :wq         Quit / discard / save and quit\nEnter Enter            Toggle word wrap in Normal mode\nCtrl+E / Y             Scroll one display line\nCtrl+D / U · F / B     Half-page / full-page movement\nCtrl+H / L             Horizontal scroll (disables wrap)\nCtrl+J / K             Move five lines (terminal dependent)\nAlt+J / K              Move current or selected lines\nTerminal paste         Paste in Insert mode\nOutput: j/k, PgUp/Down Scroll captured output / buffer list\nF1 / Esc               Close this help\n\nFont size and clipboard shortcuts are controlled by your terminal.";
+const HELP: &str = "vimloating terminal controls\n\ni / a / I / A / o / O   Insert text\nEsc / Ctrl+C           Return to Normal mode\nh j k l / arrows       Move; counts supported\nw b e · gg G · f F t T  Vim motions and character-find hints\ngf / gF               Open path[:line[:column]] under cursor\nInsert: Ctrl+X Ctrl+F  Complete file / directory path\nInsert: Ctrl+X Ctrl+L  Complete whole line\nInsert: Ctrl+N / P     Complete word / cycle popup matches\nHold Ctrl+N / P       Repeat completion / motion / history\nBackspace             Move back one character; hold to repeat\nInsert: Delete        Delete under cursor; hold to repeat\nCommand: Tab          Complete command / path\nv / V · y d x · p P    Select, yank, delete, paste\nu / Ctrl+R             Undo / redo\n/ or ? · n / N         Search forward/backward and repeat\n:w [path] · Ctrl+S     Save\n:e path · :Explore     Open file / directory browser\n:ls · :b id · :bn :bp  List / switch buffers\nCtrl+6 / Ctrl+^        Last active buffer (terminal dependent)\n:!command · :.!command Shell output / filter current line\n:q / :q! / :wq         Quit / discard / save and quit\nEnter Enter            Toggle word wrap in Normal mode\nCtrl+E / Y             Scroll one display line\nCtrl+D / U · F / B     Half-page / full-page movement\nCtrl+H / L             Horizontal scroll (disables wrap)\nCtrl+J / K             Move five lines (terminal dependent)\nAlt+J / K              Move current or selected lines\nTerminal paste         Paste in Insert mode\nOutput: j/k, PgUp/Down Scroll captured output / buffer list\nF1 / Esc               Close this help\n\nFont size and clipboard shortcuts are controlled by your terminal.";
 
 /// Restores terminal state on normal return, I/O errors, and unwinding panics.
 struct TerminalSession;
@@ -168,6 +168,9 @@ fn handle_paste(editor: &mut Editor, text: &str) {
 }
 
 fn handle_key(editor: &mut Editor, ui: &mut Ui, key: KeyEvent, rows: usize, cols: usize) {
+    if key.kind == KeyEventKind::Release {
+        return;
+    }
     let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
     if key.code == KeyCode::F(1) {
         ui.help = !ui.help;
@@ -233,6 +236,11 @@ fn handle_key(editor: &mut Editor, ui: &mut Ui, key: KeyEvent, rows: usize, cols
         return;
     }
     if ctrl {
+        if let KeyCode::Char(ch) = key.code
+            && editor.insert_control_key(ch)
+        {
+            return;
+        }
         match key.code {
             // Legacy terminal encodings and Windows console paste can report
             // newline, tab, and backspace as their control-key equivalents.
@@ -240,7 +248,7 @@ fn handle_key(editor: &mut Editor, ui: &mut Ui, key: KeyEvent, rows: usize, cols
                 editor.newline()
             }
             KeyCode::Char('i') if editor.mode == Mode::Insert => editor.insert_text("    "),
-            KeyCode::Char('h') if editor.mode == Mode::Insert => editor.backspace(),
+            KeyCode::Char('h') if editor.mode == Mode::Insert => editor.move_back_character(),
             KeyCode::Enter | KeyCode::Char('j' | 'm')
                 if matches!(editor.mode, Mode::Command | Mode::Search) =>
             {
@@ -344,7 +352,9 @@ fn handle_key(editor: &mut Editor, ui: &mut Ui, key: KeyEvent, rows: usize, cols
             editor.clamp();
         }
         KeyCode::Enter if editor.mode == Mode::Insert => editor.newline(),
-        KeyCode::Backspace if editor.mode == Mode::Insert => editor.backspace(),
+        KeyCode::Backspace if matches!(editor.mode, Mode::Normal | Mode::Visual | Mode::Insert) => {
+            editor.move_back_character()
+        }
         KeyCode::Delete if editor.mode == Mode::Insert => editor.delete_forward(),
         KeyCode::Tab if editor.mode == Mode::Insert => editor.insert_text("    "),
         KeyCode::Enter if editor.mode == Mode::Normal && editor.is_directory_browser() => {
@@ -397,6 +407,79 @@ fn rgb(color: ThemeColor) -> Color {
         (color.g * 255.0).round() as u8,
         (color.b * 255.0).round() as u8,
     )
+}
+
+fn draw_completion_popup(
+    frame: &mut Frame,
+    editor: &Editor,
+    content: Rect,
+    gutter: usize,
+    cols: usize,
+    wrap: bool,
+) {
+    let Some(popup) = editor.completion_popup() else {
+        return;
+    };
+    let (anchor_col, cursor_row) = if editor.mode == Mode::Command {
+        (0, content.height as usize)
+    } else {
+        let index = editor.display_index(editor.cursor, cols, wrap);
+        let Some(row) = index
+            .checked_sub(editor.top)
+            .filter(|&row| row < content.height as usize)
+        else {
+            return;
+        };
+        let start = if wrap {
+            editor.cursor.col / cols * cols
+        } else {
+            editor.left
+        };
+        (popup.anchor.col.saturating_sub(start), row)
+    };
+    let Some(layout) = popup.layout(anchor_col, cursor_row, cols, content.height as usize) else {
+        return;
+    };
+    let area = Rect::new(
+        content.x + gutter as u16 + layout.x as u16,
+        content.y + layout.y as u16,
+        layout.width as u16,
+        layout.height as u16,
+    );
+    let palette = editor.theme.palette();
+    let base = Style::default()
+        .fg(rgb(palette.text))
+        .bg(rgb(palette.status));
+    frame.render_widget(Clear, area);
+    frame.render_widget(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(
+                popup
+                    .title()
+                    .chars()
+                    .take(layout.width - 2)
+                    .collect::<String>(),
+            )
+            .border_style(base.fg(rgb(palette.accent)))
+            .style(base),
+        area,
+    );
+    for offset in 0..layout.visible {
+        let index = layout.first + offset;
+        let text = safe_text(&popup.candidate_text(index, layout.width - 2));
+        let style = if index == popup.selected {
+            base.bg(rgb(palette.accent))
+                .fg(rgb(palette.cursor_text))
+                .add_modifier(Modifier::BOLD)
+        } else {
+            base
+        };
+        frame.render_widget(
+            Paragraph::new(text).style(style),
+            Rect::new(area.x + 1, area.y + 1 + offset as u16, area.width - 2, 1),
+        );
+    }
 }
 
 // The shared viewport counts Unicode scalar values, one per cell. Keep the
@@ -558,7 +641,11 @@ fn draw(frame: &mut Frame, editor: &Editor, ui: &Ui) {
                     style = style.bg(rgb(palette.search));
                 }
                 if editor.selected_cell(pos) {
-                    style = style.bg(rgb(palette.selection));
+                    style = style.bg(rgb(if col < line.len() {
+                        palette.selection
+                    } else {
+                        palette.line_selection
+                    }));
                 }
                 if pos == editor.cursor && matches!(editor.mode, Mode::Normal | Mode::Visual) {
                     style = style
@@ -588,6 +675,9 @@ fn draw(frame: &mut Frame, editor: &Editor, ui: &Ui) {
                 ));
             }
         }
+    }
+    if !ui.help {
+        draw_completion_popup(frame, editor, content, gutter, cols, ui.wrap);
     }
     if area.height >= 2 {
         let mode = match editor.mode {
@@ -740,6 +830,211 @@ mod tests {
     }
 
     #[test]
+    fn terminal_path_completion_and_gf_use_the_shared_editor() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("vimloating-tui-paths-{unique}"));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("alpha.txt"), "alpha\nsecond").unwrap();
+        std::fs::write(root.join("alpine.txt"), "alpine").unwrap();
+        let mut editor = Editor::new("", Some(root.join("source.txt")));
+        let mut ui = Ui::default();
+        type_keys(&mut editor, &mut ui, "ial");
+        control(&mut editor, &mut ui, 'x');
+        control(&mut editor, &mut ui, 'f');
+        assert_eq!(editor.text(), "alpha.txt");
+        control(&mut editor, &mut ui, 'n');
+        assert_eq!(editor.text(), "alpine.txt");
+        control(&mut editor, &mut ui, 'p');
+        assert_eq!(editor.text(), "alpha.txt");
+        type_keys(&mut editor, &mut ui, ":2:2");
+        press(&mut editor, &mut ui, KeyCode::Esc);
+        let mut buffers = BufferList::new(editor);
+        type_keys(buffers.active_mut(), &mut ui, "gf");
+        buffers.process_pending();
+        assert_eq!(buffers.active().text(), "alpha\nsecond");
+        assert_eq!(buffers.active().cursor, Pos { row: 1, col: 1 });
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn terminal_word_and_line_completion_use_ctrl_n_p_and_ctrl_x_l() {
+        let mut editor = Editor::new("hello there\nhelp here\n    he", None);
+        let mut ui = Ui {
+            wrap: true,
+            ..Ui::default()
+        };
+        editor.cursor.row = 2;
+        type_keys(&mut editor, &mut ui, "A");
+        control(&mut editor, &mut ui, 'n');
+        assert_eq!(editor.lines[2].iter().collect::<String>(), "    hello");
+        control(&mut editor, &mut ui, 'p');
+        assert_eq!(editor.lines[2].iter().collect::<String>(), "    here");
+        // Replace the word prefix before starting whole-line completion.
+        for _ in 0..2 {
+            press(&mut editor, &mut ui, KeyCode::Backspace);
+            press(&mut editor, &mut ui, KeyCode::Delete);
+        }
+        control(&mut editor, &mut ui, 'x');
+        control(&mut editor, &mut ui, 'l');
+        assert_eq!(
+            editor.lines[2].iter().collect::<String>(),
+            "    hello there"
+        );
+        control(&mut editor, &mut ui, 'l');
+        assert_eq!(editor.lines[2].iter().collect::<String>(), "    help here");
+        control(&mut editor, &mut ui, 'p');
+        assert_eq!(
+            editor.lines[2].iter().collect::<String>(),
+            "    hello there"
+        );
+        assert!(ui.wrap);
+        press(&mut editor, &mut ui, KeyCode::Esc);
+        control(&mut editor, &mut ui, 'p');
+        assert_eq!(editor.cursor.row, 1);
+        control(&mut editor, &mut ui, 'l');
+        assert!(!ui.wrap);
+    }
+
+    #[test]
+    fn terminal_repeat_events_cycle_and_delete_while_release_events_do_nothing() {
+        let mut e = Editor::new("hello help helmet\nhe", None);
+        let mut ui = Ui::default();
+        e.cursor.row = 1;
+        e.begin_insert('A');
+        for (kind, selected) in [
+            (KeyEventKind::Press, 0),
+            (KeyEventKind::Repeat, 1),
+            (KeyEventKind::Repeat, 2),
+            (KeyEventKind::Release, 2),
+        ] {
+            handle_key(
+                &mut e,
+                &mut ui,
+                KeyEvent::new_with_kind(KeyCode::Char('n'), KeyModifiers::CONTROL, kind),
+                8,
+                20,
+            );
+            assert_eq!(e.completion_popup().unwrap().selected, selected);
+        }
+        handle_key(
+            &mut e,
+            &mut ui,
+            KeyEvent::new_with_kind(
+                KeyCode::Char('p'),
+                KeyModifiers::CONTROL,
+                KeyEventKind::Repeat,
+            ),
+            8,
+            20,
+        );
+        assert_eq!(e.completion_popup().unwrap().selected, 1);
+        for key in [KeyCode::Backspace, KeyCode::Delete] {
+            let mut e = Editor::new("abcdef", None);
+            if key == KeyCode::Backspace {
+                e.cursor.col = 5;
+            }
+            for kind in [KeyEventKind::Press, KeyEventKind::Repeat] {
+                handle_key(
+                    &mut e,
+                    &mut ui,
+                    KeyEvent::new_with_kind(key, KeyModifiers::NONE, kind),
+                    8,
+                    20,
+                );
+            }
+            assert_eq!(e.text(), "abcdef");
+            assert_eq!(e.mode, Mode::Normal);
+            assert_eq!(e.cursor.col, if key == KeyCode::Backspace { 3 } else { 0 });
+            e.begin_insert('i');
+            for kind in [
+                KeyEventKind::Press,
+                KeyEventKind::Repeat,
+                KeyEventKind::Repeat,
+                KeyEventKind::Release,
+            ] {
+                handle_key(
+                    &mut e,
+                    &mut ui,
+                    KeyEvent::new_with_kind(key, KeyModifiers::NONE, kind),
+                    8,
+                    20,
+                );
+            }
+            assert_eq!(
+                e.text(),
+                if key == KeyCode::Backspace {
+                    "abcdef"
+                } else {
+                    "def"
+                }
+            );
+            assert_eq!(e.mode, Mode::Insert);
+            assert_eq!(e.cursor.col, 0);
+            e.escape();
+            e.undo(false);
+            assert_eq!(e.text(), "abcdef");
+        }
+    }
+
+    #[test]
+    fn terminal_popup_renders_candidates_and_selection_then_disappears_after_typing() {
+        let mut e = Editor::new("hello help helmet\nhe", None);
+        e.cursor.row = 1;
+        e.begin_insert('A');
+        e.control_key('n');
+        let ui = Ui::default();
+        let mut terminal = Terminal::new(TestBackend::new(24, 12)).unwrap();
+        terminal.draw(|frame| draw(frame, &e, &ui)).unwrap();
+        let buffer = terminal.backend().buffer();
+        let text: String = buffer.content().iter().map(|cell| cell.symbol()).collect();
+        assert!(text.contains("Word 1/3"));
+        assert!(text.contains("helmet"));
+        assert_eq!(buffer[(4, 3)].bg, rgb(e.theme.palette().accent));
+        assert_eq!(buffer[(4, 3)].symbol(), "h");
+        assert_ne!(buffer[(4, 4)].bg, rgb(e.theme.palette().accent));
+        e.control_key('n');
+        terminal.draw(|frame| draw(frame, &e, &ui)).unwrap();
+        let buffer = terminal.backend().buffer();
+        assert_ne!(buffer[(4, 3)].bg, rgb(e.theme.palette().accent));
+        assert_eq!(buffer[(4, 4)].bg, rgb(e.theme.palette().accent));
+        e.insert_char('!');
+        terminal.draw(|frame| draw(frame, &e, &ui)).unwrap();
+        assert_ne!(
+            terminal.backend().buffer()[(4, 4)].bg,
+            rgb(e.theme.palette().accent)
+        );
+        for (width, height) in [(1, 1), (5, 3), (12, 6), (30, 12)] {
+            terminal.backend_mut().resize(width, height);
+            terminal.resize(Rect::new(0, 0, width, height)).unwrap();
+            e.backspace();
+            e.complete_word(false);
+            terminal.draw(|frame| draw(frame, &e, &ui)).unwrap();
+        }
+    }
+
+    #[test]
+    fn terminal_command_popup_stays_above_the_status_and_prompt() {
+        let mut e = Editor::new("one\ntwo", None);
+        e.normal_key(':');
+        e.prompt = "buf".into();
+        e.complete_command();
+        let mut terminal = Terminal::new(TestBackend::new(24, 10)).unwrap();
+        terminal
+            .draw(|frame| draw(frame, &e, &Ui::default()))
+            .unwrap();
+        let buffer = terminal.backend().buffer();
+        let row = |y| (0..24).map(|x| buffer[(x, y)].symbol()).collect::<String>();
+        assert!(row(4).contains("Command 1/2"));
+        assert!(row(5).contains("buffer"));
+        assert!(row(6).contains("buffers"));
+        assert!(row(8).contains("COMMAND"));
+        assert!(row(9).starts_with(":buffer"));
+    }
+
+    #[test]
     fn terminal_block_selection_highlights_only_the_rectangle_and_case_operators_work() {
         let mut editor = Editor::new("aBc\ndEf", None);
         let mut ui = Ui::default();
@@ -845,7 +1140,8 @@ mod tests {
                 20,
             );
         }
-        assert_eq!(editor.text(), "a\n   ");
+        assert_eq!(editor.text(), "a\n    ");
+        assert_eq!(editor.cursor, Pos { row: 1, col: 3 });
         handle_key(
             &mut editor,
             &mut ui,
@@ -853,7 +1149,7 @@ mod tests {
             8,
             20,
         );
-        assert_eq!(editor.text(), "a\n   \n   ");
+        assert_eq!(editor.text(), "a\n   \n    ");
         press(&mut editor, &mut ui, KeyCode::Esc);
         press(&mut editor, &mut ui, KeyCode::Char(':'));
         for ch in "q!".chars() {

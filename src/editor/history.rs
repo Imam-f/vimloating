@@ -2,6 +2,9 @@ use super::{Editor, Mode};
 
 impl Editor {
     pub fn control_key(&mut self, key: char) {
+        if self.insert_control_key(key) {
+            return;
+        }
         match (self.mode, key) {
             (Mode::Normal | Mode::Visual, 'v') => {
                 if self.is_directory_browser() {
