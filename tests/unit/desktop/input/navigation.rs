@@ -1,6 +1,43 @@
 use super::*;
 
 #[test]
+fn desktop_ge_moves_backward_by_word_with_counts() {
+    let mut editor = Editor::new("one two three", None);
+    editor.cursor.col = 12;
+    KeyboardHarness::new().frame(&mut editor, 0.0, &[], &[], "2ge");
+    assert_eq!(editor.cursor.col, 2);
+    assert!(!editor.dirty());
+}
+
+#[test]
+fn desktop_j_k_use_current_wrap_width_and_gj_gk_use_source_lines() {
+    let mut keyboard = KeyboardHarness::new();
+    let cols = text_grid(keyboard.font_size).1;
+    let text = format!("  {}\n  {}", "x".repeat(cols * 2), "y".repeat(cols * 2));
+    let mut editor = Editor::new(&text, None);
+    editor.cursor.col = 9;
+    for (now, chars, expected) in [
+        (
+            0.0,
+            "j",
+            vimloating::editor::Pos {
+                row: 0,
+                col: cols + 3,
+            },
+        ),
+        (0.1, "k", vimloating::editor::Pos { row: 0, col: 9 }),
+        (0.2, "gj", vimloating::editor::Pos { row: 1, col: 9 }),
+        (0.3, "gk", vimloating::editor::Pos { row: 0, col: 9 }),
+    ] {
+        keyboard.frame(&mut editor, now, &[], &[], chars);
+        assert_eq!(editor.cursor, expected);
+    }
+    keyboard.wrap = false;
+    keyboard.frame(&mut editor, 0.4, &[], &[], "j");
+    assert_eq!(editor.cursor, vimloating::editor::Pos { row: 1, col: 9 });
+}
+
+#[test]
 fn desktop_frames_repeat_arrows_and_page_keys() {
     let text = std::iter::repeat_n("abcdefghijk", 300)
         .collect::<Vec<_>>()

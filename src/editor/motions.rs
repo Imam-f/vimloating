@@ -101,6 +101,23 @@ impl Editor {
         self.clamp();
     }
 
+    pub(super) fn previous_word_end(&mut self, n: usize) {
+        for _ in 0..n {
+            let mut pos = self.cursor;
+            while let Some(previous) = self.prev_pos(pos) {
+                let class = self.class(previous);
+                let word_end = class != 0 && (previous.row != pos.row || class != self.class(pos));
+                pos = previous;
+                if word_end {
+                    break;
+                }
+            }
+            self.cursor = pos;
+        }
+        self.preferred_col = None;
+        self.clamp();
+    }
+
     pub(super) fn paragraph(&mut self, forward: bool, n: usize) {
         let empty_lines: Vec<_> = self
             .lines

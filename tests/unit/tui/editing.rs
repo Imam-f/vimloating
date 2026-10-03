@@ -131,20 +131,35 @@ fn terminal_repeat_events_cycle_and_delete_while_release_events_do_nothing() {
                 20,
             );
         }
-        assert_eq!(
-            e.text(),
-            if key == KeyCode::Backspace {
-                "abcdef"
-            } else {
-                "def"
-            }
-        );
+        assert_eq!(e.text(), "def");
         assert_eq!(e.mode, Mode::Insert);
         assert_eq!(e.cursor.col, 0);
         e.escape();
         e.undo(false);
         assert_eq!(e.text(), "abcdef");
     }
+}
+
+#[test]
+fn terminal_insert_backspace_deletes_unicode_and_joins_lines() {
+    let mut editor = Editor::new("aé\n日z", None);
+    let mut ui = Ui::default();
+    editor.cursor = Pos { row: 1, col: 1 };
+    editor.begin_insert('i');
+    for (text, cursor) in [
+        ("aé\nz", Pos { row: 1, col: 0 }),
+        ("aéz", Pos { row: 0, col: 2 }),
+        ("az", Pos { row: 0, col: 1 }),
+        ("z", Pos { row: 0, col: 0 }),
+        ("z", Pos { row: 0, col: 0 }),
+    ] {
+        press(&mut editor, &mut ui, KeyCode::Backspace);
+        assert_eq!(editor.text(), text);
+        assert_eq!(editor.cursor, cursor);
+    }
+    press(&mut editor, &mut ui, KeyCode::Esc);
+    press(&mut editor, &mut ui, KeyCode::Char('u'));
+    assert_eq!(editor.text(), "aé\n日z");
 }
 
 #[test]
@@ -198,7 +213,7 @@ fn legacy_control_encodings_edit_insert_text_and_submit_prompts() {
             20,
         );
     }
-    assert_eq!(editor.text(), "a\n    ");
+    assert_eq!(editor.text(), "a\n   ");
     assert_eq!(editor.cursor, Pos { row: 1, col: 3 });
     handle_key(
         &mut editor,
@@ -207,7 +222,7 @@ fn legacy_control_encodings_edit_insert_text_and_submit_prompts() {
         8,
         20,
     );
-    assert_eq!(editor.text(), "a\n   \n    ");
+    assert_eq!(editor.text(), "a\n   \n   ");
     press(&mut editor, &mut ui, KeyCode::Esc);
     press(&mut editor, &mut ui, KeyCode::Char(':'));
     for ch in "q!".chars() {

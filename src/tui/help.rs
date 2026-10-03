@@ -1,6 +1,7 @@
 pub const WELCOME: &str = r#"// vimloating — terminal editor
 
 // i: insert · Esc: normal · h j k l: move · w b e: words
+// j/k: wrapped rows · gj/gk: original lines
 // v / V: select · y / d: yank / delete · p: paste
 // u / Ctrl+R: undo / redo · / or ?: search · n / N: repeat
 // :w notes.rs: save · :e path: open · :Explore: browse
@@ -14,14 +15,18 @@ pub(super) const HELP: &str = r#"vimloating terminal controls
 
 i / a / I / A / o / O   Insert text
 Esc / Ctrl+C           Return to Normal mode
-h j k l / arrows       Move; counts supported
+h / l / arrows        Move; counts supported
+j / k                 Move down / up through wrapped rows
+gj / gk               Move down / up through original lines
 w b e · gg G · f F t T  Vim motions and character-find hints
+ge                    End of previous word; counts supported
 gf / gF               Open path[:line[:column]] under cursor
 Insert: Ctrl+X Ctrl+F  Complete file / directory path
 Insert: Ctrl+X Ctrl+L  Complete whole line
 Insert: Ctrl+N / P     Complete word / cycle popup matches
 Hold Ctrl+N / P       Repeat completion / motion / history
-Backspace             Move back one character; hold to repeat
+Normal/Visual: Backspace Move back one character; hold to repeat
+Insert: Backspace     Delete before cursor / join lines; hold to repeat
 Insert: Delete        Delete under cursor; hold to repeat
 Command: Tab          Complete command / path
 v / V · y d x · p P    Select, yank, delete, paste

@@ -1,6 +1,61 @@
-use super::{Editor, Pos};
+use super::{Editor, Pos, VerticalColumn};
 
 impl Editor {
+    /// Virtual indentation and usable text width of a rendered row.
+    pub fn display_row_layout(
+        &self,
+        row: usize,
+        start: usize,
+        cols: usize,
+        wrap: bool,
+    ) -> (usize, usize) {
+        let cols = cols.max(1);
+        let indent = if wrap && start > 0 {
+            self.lines[row]
+                .iter()
+                .take(cols.saturating_sub(1))
+                .take_while(|ch| ch.is_whitespace())
+                .count()
+                .saturating_add(4)
+                .min(cols - 1)
+        } else {
+            0
+        };
+        (indent, cols - indent)
+    }
+
+    /// Source column where a position's rendered row begins.
+    pub fn display_segment_start(&self, pos: Pos, cols: usize, wrap: bool) -> usize {
+        let cols = cols.max(1);
+        if !wrap || pos.col < cols || self.folded_range(pos.row).is_some() {
+            0
+        } else {
+            let (_, width) = self.display_row_layout(pos.row, cols, cols, true);
+            cols + (pos.col - cols) / width * width
+        }
+    }
+
+    /// Map a rendered text column back to the buffer, excluding virtual indent.
+    pub fn position_at_display_column(
+        &self,
+        row: usize,
+        start: usize,
+        column: usize,
+        cols: usize,
+        wrap: bool,
+    ) -> Pos {
+        let (indent, width) = self.display_row_layout(row, start, cols, wrap);
+        Pos {
+            row,
+            col: start
+                + if wrap {
+                    column.saturating_sub(indent).min(width - 1)
+                } else {
+                    column
+                },
+        }
+    }
+
     #[cfg(test)]
     pub fn display_rows(&self, cols: usize, wrap: bool) -> Vec<(usize, usize)> {
         let cols = cols.max(1);
@@ -17,11 +72,13 @@ impl Editor {
             if !wrap || len == 0 {
                 rows.push((row, 0));
             } else {
-                for start in (0..len).step_by(cols) {
+                let mut start = 0;
+                while start < len {
                     rows.push((row, start));
+                    start += self.display_row_layout(row, start, cols, true).1;
                 }
-                if self.mode == super::Mode::Insert && line.len().is_multiple_of(cols) {
-                    rows.push((row, line.len()));
+                if self.mode == super::Mode::Insert && start == line.len() {
+                    rows.push((row, start));
                 }
             }
         }
@@ -39,11 +96,9 @@ impl Editor {
         if !wrap || len == 0 {
             1
         } else {
-            let mut count = len.div_ceil(cols);
-            if insert_mode && len.is_multiple_of(cols) {
-                count += 1;
-            }
-            count
+            let len = len.saturating_add(usize::from(insert_mode));
+            let (_, width) = self.display_row_layout(row, cols, cols, true);
+            1 + len.saturating_sub(cols).div_ceil(width)
         }
     }
 
@@ -113,7 +168,12 @@ impl Editor {
             .get(pos.row.min(self.lines.len()))
             .copied()
             .unwrap_or(0);
-        if wrap { base + pos.col / cols } else { base }
+        if wrap && pos.col >= cols {
+            let (_, width) = self.display_row_layout(pos.row, cols, cols, true);
+            base + 1 + (pos.col - cols) / width
+        } else {
+            base
+        }
     }
 
     /// Total number of rendered display rows.
@@ -152,10 +212,11 @@ impl Editor {
         while out.len() < count && row < self.lines.len() {
             let segments = self.line_segment_count(row, cols, wrap, insert_mode);
             while segment < segments && out.len() < count {
-                let start = if !wrap || self.display_line_length(row) == 0 {
+                let start = if !wrap || self.display_line_length(row) == 0 || segment == 0 {
                     0
                 } else {
-                    segment * cols
+                    let (_, width) = self.display_row_layout(row, cols, cols, true);
+                    cols + (segment - 1) * width
                 };
                 out.push((row, start));
                 segment += 1;
@@ -197,6 +258,34 @@ impl Editor {
         self.top = row_index.saturating_sub(rows / 2).min(max_top);
     }
 
+    pub(super) fn move_by_wrapped_rows(&mut self, direction: isize, amount: usize, cols: usize) {
+        let cols = cols.max(1);
+        self.insert_completion = None;
+        self.insert_completion_pending = false;
+        let start = self.display_segment_start(self.cursor, cols, true);
+        let indent = self
+            .display_row_layout(self.cursor.row, start, cols, true)
+            .0;
+        let column = match self.preferred_col {
+            Some(VerticalColumn::Display(column)) => column,
+            _ => indent + self.cursor.col.saturating_sub(start),
+        };
+        let index = self.display_index(self.cursor, cols, true);
+        let total = self.display_total(cols, true);
+        let target = if direction < 0 {
+            index.saturating_sub(amount)
+        } else {
+            index.saturating_add(amount).min(total.saturating_sub(1))
+        };
+        if target != index
+            && let Some(&(row, start)) = self.display_window(target, 1, cols, true).first()
+        {
+            self.cursor = self.position_at_display_column(row, start, column, cols, true);
+            self.clamp();
+        }
+        self.preferred_col = Some(VerticalColumn::Display(column));
+    }
+
     pub fn move_by_display_rows(
         &mut self,
         direction: isize,
@@ -207,11 +296,7 @@ impl Editor {
     ) {
         let cols = cols.max(1);
         let total = self.display_total(cols, wrap);
-        let current_segment = if wrap {
-            self.cursor.col / cols * cols
-        } else {
-            0
-        };
+        let current_segment = self.display_segment_start(self.cursor, cols, wrap);
         let current_index = self.display_index(self.cursor, cols, wrap);
         let target_index = if direction < 0 {
             current_index.saturating_sub(amount)
@@ -225,13 +310,12 @@ impl Editor {
             .first()
             .copied()
             .unwrap_or((self.cursor.row, current_segment));
-        let column_offset = self.cursor.col.saturating_sub(current_segment);
-        self.cursor = Pos {
-            row,
-            col: start
-                .saturating_add(column_offset)
-                .min(self.lines[row].len()),
-        };
+        let indent = self
+            .display_row_layout(self.cursor.row, current_segment, cols, wrap)
+            .0;
+        let column_offset = indent + self.cursor.col.saturating_sub(current_segment);
+        self.cursor = self.position_at_display_column(row, start, column_offset, cols, wrap);
+        self.cursor.col = self.cursor.col.min(self.lines[row].len());
         self.preferred_col = None;
         self.search_task = None;
         self.char_find_hints.clear();
@@ -250,7 +334,8 @@ impl Editor {
             .first()
             .copied()
             .unwrap_or((0, 0));
-        let end = (start + cols).min(self.lines[row].len());
+        let width = self.display_row_layout(row, start, cols, wrap).1;
+        let end = (start + width).min(self.lines[row].len());
         let col = (start..end)
             .find(|&col| !self.lines[row][col].is_whitespace())
             .unwrap_or(start);
@@ -281,11 +366,6 @@ impl Editor {
             self.top.saturating_add(amount).min(max_top)
         };
 
-        let segment = if wrap {
-            self.cursor.col / cols * cols
-        } else {
-            0
-        };
         let cursor_index = self.display_index(self.cursor, cols, wrap);
         let visible_rows = rows.max(1);
         let visible_end = self.top.saturating_add(visible_rows).min(total);
@@ -300,15 +380,12 @@ impl Editor {
         if let Some(target_index) = target_index
             && let Some(&(row, start)) = self.display_window(target_index, 1, cols, wrap).first()
         {
-            let current_start = if wrap {
-                self.cursor.col / cols * cols
-            } else {
-                segment
-            };
-            self.cursor = Pos {
-                row,
-                col: start + self.cursor.col.saturating_sub(current_start),
-            };
+            let current_start = self.display_segment_start(self.cursor, cols, wrap);
+            let indent = self
+                .display_row_layout(self.cursor.row, current_start, cols, wrap)
+                .0;
+            let column = indent + self.cursor.col.saturating_sub(current_start);
+            self.cursor = self.position_at_display_column(row, start, column, cols, wrap);
             self.preferred_col = None;
             self.clamp();
         }

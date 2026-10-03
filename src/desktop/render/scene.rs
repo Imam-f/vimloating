@@ -31,7 +31,48 @@ pub fn editor_target_dimensions() -> (u32, u32) {
 pub fn create_editor_target(width: u32, height: u32) -> RenderTarget {
     let target = render_target(width, height);
     target.texture.set_filter(FilterMode::Linear);
+    sharpen_editor_texture(&target.texture);
     target
+}
+
+fn sharpen_editor_texture(texture: &Texture2D) {
+    use miniquad::{RawId, gl};
+
+    // Favor finer mip levels while retaining trilinear transitions during zoom.
+    const TEXTURE_LOD_BIAS: u32 = 0x8501;
+    const TEXTURE_BINDING_2D: u32 = 0x8069;
+    let texture = texture.raw_miniquad_id();
+    // SAFETY: texture creation runs on the render thread with a current context.
+    // Restore the binding so Miniquad's cached texture state stays valid.
+    unsafe {
+        let context = get_internal_gl();
+        match context.quad_context.texture_raw_id(texture) {
+            RawId::OpenGl(texture) => {
+                let mut previous = 0;
+                gl::glGetIntegerv(TEXTURE_BINDING_2D, &mut previous);
+                gl::glBindTexture(gl::GL_TEXTURE_2D, texture);
+                gl::glTexParameterf(gl::GL_TEXTURE_2D, TEXTURE_LOD_BIAS, -0.5);
+                gl::glBindTexture(gl::GL_TEXTURE_2D, previous as u32);
+            }
+            #[cfg(target_vendor = "apple")]
+            RawId::Metal(_) => {}
+        }
+    }
+}
+
+pub fn update_editor_mipmaps(target: &RenderTarget) {
+    let texture = target.texture.raw_miniquad_id();
+    // Finish drawing the current buffer before averaging its smaller levels.
+    // Bilinear sampling alone skips thin strokes when the board is zoomed out.
+    // SAFETY: this runs on Macroquad's render thread, between drawing passes.
+    let mut gl = unsafe { get_internal_gl() };
+    gl.flush();
+    gl.quad_context.texture_generate_mipmaps(texture);
+    gl.quad_context.texture_set_min_filter(
+        texture,
+        FilterMode::Linear,
+        miniquad::MipmapFilterMode::Linear,
+    );
 }
 
 pub fn draw_world(view: &View, board: &Mesh, show_floor: bool, theme: Theme) {

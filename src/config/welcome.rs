@@ -9,7 +9,9 @@ fn main() {
 //   i              enter insert mode
 //   Esc            return to normal mode
 //   h j k l        move left, down, up, right
+//   j / k          move through wrapped rows; gj / gk move original lines
 //   w b e          move by word
+//   ge             end of the previous word; counts supported
 //   f/t + char     find / till; F/T backward; ; / , repeat
 //   .              repeat the last change
 //   > / <          indent / unindent current line or visual selection
@@ -33,7 +35,8 @@ fn main() {
 //   Ctrl+X Ctrl+F   complete a file path in Insert mode; Ctrl+N / P cycle
 //   Ctrl+N / P      complete words in Insert mode; Ctrl+X Ctrl+L completes lines
 //   Completion      popup shows matches; hold Ctrl+N / P to cycle
-//   Backspace      move back one character without deleting; hold to repeat
+//   Backspace      move back in Normal/Visual mode; hold to repeat
+//   Insert: BS     delete before cursor; join lines at line start; hold to repeat
 //   Insert: Del    delete under cursor; hold to repeat
 //   Tab             complete command names and file paths in the command prompt
 

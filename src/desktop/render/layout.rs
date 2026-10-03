@@ -48,16 +48,15 @@ pub(super) fn visible_cursor_row(cursor_index: usize, top: usize, rows: usize) -
 
 pub fn cursor_board_position(editor: &Editor, font_size: u16, word_wrap: bool) -> Vec2 {
     let (_, cols, cell_width, line_height) = text_grid(font_size);
-    let segment = if word_wrap {
-        editor.cursor.col / cols.max(1) * cols.max(1)
-    } else {
-        0
-    };
+    let segment = editor.display_segment_start(editor.cursor, cols, word_wrap);
     let display_index = editor.display_index(editor.cursor, cols, word_wrap);
     let row_in_view = display_index.saturating_sub(editor.top);
     let visible_start = segment + if word_wrap { 0 } else { editor.left };
+    let indent = editor
+        .display_row_layout(editor.cursor.row, segment, cols, word_wrap)
+        .0;
     let x = TEXT_X
-        + editor.cursor.col.saturating_sub(visible_start) as f32 * cell_width
+        + (indent + editor.cursor.col.saturating_sub(visible_start)) as f32 * cell_width
         + cell_width * 0.5;
     let y = TEXT_Y + row_in_view as f32 * line_height + line_height * 0.5;
     vec2(

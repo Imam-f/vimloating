@@ -27,12 +27,12 @@ pub(super) fn draw_completion_popup(
         else {
             return;
         };
-        let start = if wrap {
-            editor.cursor.col / cols * cols
-        } else {
-            editor.left
-        };
-        (popup.anchor.col.saturating_sub(start), row)
+        let segment = editor.display_segment_start(editor.cursor, cols, wrap);
+        let start = if wrap { segment } else { editor.left };
+        let indent = editor
+            .display_row_layout(editor.cursor.row, segment, cols, wrap)
+            .0;
+        (indent + popup.anchor.col.saturating_sub(start), row)
     };
     let Some(layout) = popup.layout(anchor_col, cursor_row, cols, content.height as usize) else {
         return;

@@ -2,6 +2,11 @@ use super::{BufferAction, Editor, Mode, Pos, operators::TextOperator};
 
 impl Editor {
     pub fn normal_key(&mut self, key: char) {
+        self.normal_key_with_viewport(key, 1, false);
+    }
+
+    /// Process a Vim key with the frontend's current wrapping layout.
+    pub fn normal_key_with_viewport(&mut self, key: char, cols: usize, wrap: bool) {
         self.horizontal_scroll_hold = false;
         self.char_find_highlight = None;
         self.char_find_hints.clear();
@@ -143,6 +148,12 @@ impl Editor {
                 };
                 self.clamp();
             }
+            if pending == 'g' && matches!(key, 'j' | 'k') {
+                self.move_by(0, if key == 'j' { 1 } else { -1 }, n);
+            }
+            if pending == 'g' && key == 'e' {
+                self.previous_word_end(n);
+            }
             if pending == 'g' && matches!(key, 'f' | 'F') && self.mode == Mode::Normal {
                 self.open_cursor_path();
             }
@@ -164,8 +175,14 @@ impl Editor {
             }
             '%' => self.matching_delimiter(),
             'h' => self.move_by(-1, 0, n),
-            'j' => self.move_by(0, 1, n),
-            'k' => self.move_by(0, -1, n),
+            'j' | 'k' => {
+                let direction = if key == 'j' { 1 } else { -1 };
+                if wrap {
+                    self.move_by_wrapped_rows(direction, n, cols);
+                } else {
+                    self.move_by(0, direction, n);
+                }
+            }
             'l' => self.move_by(1, 0, n),
             'w' | 'b' | 'e' => self.word(key, n),
             '{' | '}' => self.paragraph(key == '}', n),

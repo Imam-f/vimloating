@@ -5,7 +5,7 @@ mod view;
 
 use config::window_conf;
 use config::*;
-use editor::{Editor, Mode, Pos, buffers::BufferList};
+use editor::{Editor, Mode, buffers::BufferList};
 use input::{KeyRepeat, VerticalMotion, advance_vertical_motion, handle_keyboard};
 use macroquad::prelude::*;
 use std::{path::PathBuf, process::ExitCode};
@@ -173,12 +173,14 @@ async fn run_editor(mut editor: Editor, screenshot: Option<PathBuf>) {
             {
                 let horizontal_offset = if word_wrap { 0 } else { editor.left };
                 editor.cancel_search();
-                editor.cursor = Pos {
+                editor.cursor = editor.position_at_display_column(
                     row,
-                    col: segment_start
-                        + horizontal_offset
-                        + ((point.x - TEXT_X) / cell_width) as usize,
-                };
+                    segment_start,
+                    ((point.x - TEXT_X) / cell_width) as usize,
+                    visible_cols,
+                    word_wrap,
+                );
+                editor.cursor.col += horizontal_offset;
                 editor.clamp();
                 editor.char_find_highlight =
                     (editor.cursor.col < editor.lines[row].len()).then_some(editor.cursor);
@@ -204,6 +206,7 @@ async fn run_editor(mut editor: Editor, screenshot: Option<PathBuf>) {
             word_wrap,
             render_scale,
         );
+        render::update_editor_mipmaps(&target);
         if view.two_d_only {
             render::draw_2d_only(&target.texture, editor.theme);
         } else {

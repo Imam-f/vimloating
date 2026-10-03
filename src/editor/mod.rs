@@ -79,6 +79,12 @@ struct CharFind {
     till: bool,
 }
 
+#[derive(Clone, Copy)]
+enum VerticalColumn {
+    Source(usize),
+    Display(usize),
+}
+
 #[derive(Clone)]
 pub(super) enum InsertAction {
     Character(char),
@@ -191,7 +197,7 @@ pub struct Editor {
     register: Vec<Vec<char>>,
     linewise: bool,
     register_block_width: Option<usize>,
-    preferred_col: Option<usize>,
+    preferred_col: Option<VerticalColumn>,
     last_char_find: Option<CharFind>,
     last_change: Option<RepeatChange>,
     insert_recording: Option<(char, Vec<InsertAction>)>,

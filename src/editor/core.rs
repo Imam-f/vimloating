@@ -1,5 +1,6 @@
 use super::{
-    BufferAction, DisplayCache, Editor, InsertAction, Mode, Pos, RepeatChange, Snapshot, folds,
+    BufferAction, DisplayCache, Editor, InsertAction, Mode, Pos, RepeatChange, Snapshot,
+    VerticalColumn, folds,
 };
 use crate::config::Theme;
 use std::{cell::RefCell, path::PathBuf};
@@ -203,7 +204,11 @@ impl Editor {
         self.search_task = None;
         self.char_find_hints.clear();
         if dy != 0 {
-            let col = *self.preferred_col.get_or_insert(self.cursor.col);
+            let col = match self.preferred_col {
+                Some(VerticalColumn::Source(col)) => col,
+                _ => self.cursor.col,
+            };
+            self.preferred_col = Some(VerticalColumn::Source(col));
             for _ in 0..n.saturating_mul(dy.unsigned_abs()) {
                 let row = if dy > 0 {
                     self.folded_range(self.cursor.row)

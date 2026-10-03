@@ -90,6 +90,7 @@ pub(super) fn draw(frame: &mut Frame, editor: &Editor, ui: &Ui) {
                 continue;
             };
             let start = segment + if ui.wrap { 0 } else { editor.left };
+            let (indent, row_cols) = editor.display_row_layout(row, segment, cols, ui.wrap);
             let folded;
             let line = if let Some(range) = editor.folded_range(row) {
                 folded = format!(
@@ -107,7 +108,7 @@ pub(super) fn draw(frame: &mut Frame, editor: &Editor, ui: &Ui) {
             let number = if segment == 0 {
                 format!("{:>width$} ", row + 1, width = gutter.saturating_sub(1))
             } else {
-                format!("{:>width$} ", "↪", width = gutter.saturating_sub(1))
+                format!("{:>width$} ", ">", width = gutter.saturating_sub(1))
             };
             let mut spans = vec![Span::styled(
                 number.chars().take(gutter).collect::<String>(),
@@ -117,6 +118,12 @@ pub(super) fn draw(frame: &mut Frame, editor: &Editor, ui: &Ui) {
                     palette.muted
                 })),
             )];
+            let padding_style = if current {
+                base.bg(rgb(palette.current_line))
+            } else {
+                base
+            };
+            spans.push(Span::styled(" ".repeat(indent), padding_style));
             let comment = line
                 .iter()
                 .position(|ch| !ch.is_whitespace())
@@ -124,8 +131,8 @@ pub(super) fn draw(frame: &mut Frame, editor: &Editor, ui: &Ui) {
                     line[i] == '#' || (line[i] == '/' && line.get(i + 1) == Some(&'/'))
                 });
             let mut quoted = line.iter().take(start).filter(|&&ch| ch == '"').count() % 2 == 1;
-            let end = (start + cols).min(line.len());
-            let mut highlights = vec![false; cols];
+            let end = (start + row_cols).min(line.len());
+            let mut highlights = vec![false; row_cols];
             if !search.is_empty() {
                 let scan_start = start.saturating_sub(search.len() - 1);
                 for index in scan_start..end {
@@ -141,7 +148,7 @@ pub(super) fn draw(frame: &mut Frame, editor: &Editor, ui: &Ui) {
                                     .get(index + search.len())
                                     .is_some_and(|ch| ch.is_alphanumeric() || *ch == '_')))
                     {
-                        for col in index.max(start)..(index + search.len()).min(start + cols) {
+                        for col in index.max(start)..(index + search.len()).min(start + row_cols) {
                             highlights[col - start] = true;
                         }
                     }
@@ -202,12 +209,12 @@ pub(super) fn draw(frame: &mut Frame, editor: &Editor, ui: &Ui) {
         }
         if editor.mode == Mode::Insert {
             let index = editor.display_index(editor.cursor, cols, ui.wrap);
-            let segment = if ui.wrap {
-                editor.cursor.col / cols * cols
-            } else {
-                editor.left
-            };
-            let x = editor.cursor.col.saturating_sub(segment);
+            let segment = editor.display_segment_start(editor.cursor, cols, ui.wrap);
+            let start = if ui.wrap { segment } else { editor.left };
+            let indent = editor
+                .display_row_layout(editor.cursor.row, segment, cols, ui.wrap)
+                .0;
+            let x = indent + editor.cursor.col.saturating_sub(start);
             if index >= editor.top && index - editor.top < content_height as usize && x < cols {
                 frame.set_cursor_position((
                     area.x + gutter as u16 + x as u16,

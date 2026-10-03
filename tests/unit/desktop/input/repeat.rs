@@ -7,9 +7,10 @@ fn desktop_frames_recover_a_hold_whose_press_edge_was_consumed() {
     let mut keyboard = KeyboardHarness::new();
     keyboard.frame(&mut editor, 0.0, &[KeyCode::Backspace], &[], "");
     assert_eq!(editor.cursor.col, 5);
+    assert_eq!(editor.text(), "abcde");
     keyboard.frame(&mut editor, 0.35, &[KeyCode::Backspace], &[], "");
     assert_eq!(editor.cursor.col, 4);
-    assert_eq!(editor.text(), "abcdef");
+    assert_eq!(editor.text(), "abcd");
 }
 
 #[test]

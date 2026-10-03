@@ -109,7 +109,7 @@ pub(super) fn handle_key(
                 editor.newline()
             }
             KeyCode::Char('i') if editor.mode == Mode::Insert => editor.insert_text("    "),
-            KeyCode::Char('h') if editor.mode == Mode::Insert => editor.move_back_character(),
+            KeyCode::Char('h') if editor.mode == Mode::Insert => editor.backspace(),
             KeyCode::Enter | KeyCode::Char('j' | 'm')
                 if matches!(editor.mode, Mode::Command | Mode::Search) =>
             {
@@ -222,7 +222,8 @@ pub(super) fn handle_key(
             editor.clamp();
         }
         KeyCode::Enter if editor.mode == Mode::Insert => editor.newline(),
-        KeyCode::Backspace if matches!(editor.mode, Mode::Normal | Mode::Visual | Mode::Insert) => {
+        KeyCode::Backspace if editor.mode == Mode::Insert => editor.backspace(),
+        KeyCode::Backspace if matches!(editor.mode, Mode::Normal | Mode::Visual) => {
             editor.move_back_character()
         }
         KeyCode::Delete if editor.mode == Mode::Insert => editor.delete_forward(),
@@ -264,7 +265,7 @@ pub(super) fn handle_key(
                     ui.wrap,
                 );
             } else {
-                editor.normal_key(ch);
+                editor.normal_key_with_viewport(ch, cols, ui.wrap);
             }
         }
         _ => {}

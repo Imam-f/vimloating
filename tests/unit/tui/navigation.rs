@@ -1,6 +1,48 @@
 use super::*;
 
 #[test]
+fn terminal_ge_moves_backward_by_word_with_counts() {
+    let mut editor = Editor::new("one two three", None);
+    editor.cursor.col = 12;
+    let mut ui = Ui {
+        wrap: true,
+        ..Ui::default()
+    };
+    type_keys(&mut editor, &mut ui, "2ge");
+    assert_eq!(editor.cursor.col, 2);
+    assert!(!editor.dirty());
+}
+
+#[test]
+fn terminal_j_k_follow_wrapping_and_gj_gk_skip_wrapped_rows() {
+    let mut editor = Editor::new("  abcdefghijklmnopqrstuvwxyz\nsecond line", None);
+    editor.cursor.col = 9;
+    let mut ui = Ui {
+        wrap: true,
+        ..Ui::default()
+    };
+    type_keys(&mut editor, &mut ui, "j");
+    assert_eq!(editor.cursor, Pos { row: 0, col: 23 });
+    type_keys(&mut editor, &mut ui, "k");
+    assert_eq!(editor.cursor, Pos { row: 0, col: 9 });
+    type_keys(&mut editor, &mut ui, "gj");
+    assert_eq!(editor.cursor, Pos { row: 1, col: 9 });
+    type_keys(&mut editor, &mut ui, "gk");
+    assert_eq!(editor.cursor, Pos { row: 0, col: 9 });
+    for _ in 0..2 {
+        handle_key(
+            &mut editor,
+            &mut ui,
+            KeyEvent::new_with_kind(KeyCode::Char('j'), KeyModifiers::NONE, KeyEventKind::Repeat),
+            8,
+            20,
+        );
+    }
+    assert_eq!(editor.cursor, Pos { row: 1, col: 9 });
+    assert!(!editor.dirty());
+}
+
+#[test]
 fn terminal_control_j_k_scroll_viewport_and_keep_cursor_visible() {
     let text = (0..30)
         .map(|row| format!("line {row}\n"))
@@ -49,7 +91,7 @@ fn terminal_control_j_k_scroll_wrapped_display_lines() {
     control(&mut editor, &mut ui, 'j');
     control(&mut editor, &mut ui, 'j');
     assert_eq!(editor.top, 10);
-    assert_eq!(editor.cursor, Pos { row: 1, col: 1 });
+    assert_eq!(editor.cursor, Pos { row: 0, col: 169 });
     assert!(!editor.dirty());
 }
 

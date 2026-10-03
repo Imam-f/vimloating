@@ -87,7 +87,9 @@ pub fn draw_buffer(
             &editor.lines[row]
         };
         let visible_start = segment_start + if word_wrap { 0 } else { editor.left };
-        let visible_end = (visible_start + cols).min(line.len());
+        let (indent, row_cols) = editor.display_row_layout(row, segment_start, cols, word_wrap);
+        let text_x = TEXT_X + indent as f32 * cell_width;
+        let visible_end = (visible_start + row_cols).min(line.len());
         let highlighted_cells = has_search.then(|| {
             search_highlights(
                 line,
@@ -98,11 +100,7 @@ pub fn draw_buffer(
                 editor.mode != Mode::Search && editor.search_whole_word,
             )
         });
-        let cursor_segment = if word_wrap {
-            editor.cursor.col / cols * cols
-        } else {
-            0
-        };
+        let cursor_segment = editor.display_segment_start(editor.cursor, cols, word_wrap);
         if row == editor.cursor.row && segment_start == cursor_segment {
             ui_rectangle(
                 94.0,
@@ -130,20 +128,20 @@ pub fn draw_buffer(
         let num = if segment_start == 0 {
             format!("{:>4}", row + 1)
         } else {
-            "   ↪".into()
+            "   >".into()
         };
         if editor.yank_blink_line(row) {
             ui_rectangle(
-                TEXT_X,
+                text_x,
                 y,
-                cols as f32 * cell_width,
+                row_cols as f32 * cell_width,
                 line_height - 1.0,
                 palette.search,
                 scale,
             );
         } else if line.is_empty() && editor.yank_blink_cell(Pos { row, col: 0 }) {
             ui_rectangle(
-                TEXT_X,
+                text_x,
                 y,
                 cell_width,
                 line_height - 1.0,
@@ -175,10 +173,10 @@ pub fn draw_buffer(
         }
         if editor.mode == Mode::Visual && !editor.visual_linewise {
             // Empty selected cells use the same softer shade as line padding.
-            for col in visible_start.max(line.len())..visible_start + cols {
+            for col in visible_start.max(line.len())..visible_start + row_cols {
                 if editor.selected_cell(Pos { row, col }) {
                     ui_rectangle(
-                        TEXT_X + (col - visible_start) as f32 * cell_width,
+                        text_x + (col - visible_start) as f32 * cell_width,
                         y,
                         cell_width,
                         line_height - 1.0,
@@ -193,7 +191,7 @@ pub fn draw_buffer(
             if ch == '"' {
                 quoted = !quoted;
             }
-            let x = TEXT_X + (col - visible_start) as f32 * cell_width;
+            let x = text_x + (col - visible_start) as f32 * cell_width;
             if highlighted_cells
                 .as_ref()
                 .is_some_and(|cells| cells[col - visible_start])
@@ -268,15 +266,15 @@ pub fn draw_buffer(
         }
     }
 
-    let cursor_segment = if word_wrap {
-        editor.cursor.col / cols * cols
-    } else {
-        0
-    };
+    let cursor_segment = editor.display_segment_start(editor.cursor, cols, word_wrap);
     let cursor_index = editor.display_index(editor.cursor, cols, word_wrap);
     if let Some(cursor_row) = visible_cursor_row(cursor_index, editor.top, rows) {
         let visible_start = cursor_segment + if word_wrap { 0 } else { editor.left };
-        let x = TEXT_X + editor.cursor.col.saturating_sub(visible_start) as f32 * cell_width;
+        let indent = editor
+            .display_row_layout(editor.cursor.row, cursor_segment, cols, word_wrap)
+            .0;
+        let x =
+            TEXT_X + (indent + editor.cursor.col.saturating_sub(visible_start)) as f32 * cell_width;
         let y = TEXT_Y + cursor_row as f32 * line_height;
         if editor.mode == Mode::Insert {
             let alpha = 0.65 + 0.35 * (get_time() as f32 * 4.0).sin().abs();

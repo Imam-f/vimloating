@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn desktop_frames_repeat_backspace_as_one_character_movement_without_deletion() {
+fn desktop_frames_repeat_insert_backspace_deleting_unicode_characters() {
     let mut editor = Editor::new("aé日z", None);
     editor.cursor.col = 3;
     editor.begin_insert('i');
@@ -14,18 +14,59 @@ fn desktop_frames_repeat_backspace_as_one_character_movement_without_deletion() 
         "",
     );
     assert_eq!(editor.cursor.col, 2);
-    assert_eq!(editor.text(), "aé日z");
+    assert_eq!(editor.text(), "aéz");
     keyboard.frame(&mut editor, 0.1, &[KeyCode::Backspace], &[], "");
     assert_eq!(editor.cursor.col, 2);
     keyboard.frame(&mut editor, 0.35, &[KeyCode::Backspace], &[], "");
     assert_eq!(editor.cursor.col, 1);
+    assert_eq!(editor.text(), "az");
     keyboard.frame(&mut editor, 0.42, &[KeyCode::Backspace], &[], "");
     assert_eq!(editor.cursor.col, 0);
     keyboard.frame(&mut editor, 0.5, &[], &[], "");
     keyboard.frame(&mut editor, 1.0, &[], &[], "");
     assert_eq!(editor.cursor.col, 0);
+    assert_eq!(editor.text(), "z");
+    assert!(editor.dirty());
+    editor.escape();
+    editor.undo(false);
     assert_eq!(editor.text(), "aé日z");
     assert!(!editor.dirty());
+}
+
+#[test]
+fn desktop_frames_normal_and_visual_backspace_move_without_deleting() {
+    for mode in [Mode::Normal, Mode::Visual] {
+        let mut editor = Editor::new("aé日z", None);
+        editor.cursor.col = 3;
+        if mode == Mode::Visual {
+            editor.normal_key('v');
+        }
+        KeyboardHarness::new().hold(&mut editor, KeyCode::Backspace, &[]);
+        assert_eq!(editor.cursor.col, 0);
+        assert_eq!(editor.mode, mode);
+        assert_eq!(editor.text(), "aé日z");
+        assert!(!editor.dirty());
+    }
+}
+
+#[test]
+fn desktop_insert_backspace_is_replayed_by_dot() {
+    let mut editor = Editor::new("abc\nabc", None);
+    editor.begin_insert('A');
+    KeyboardHarness::new().frame(
+        &mut editor,
+        0.0,
+        &[KeyCode::Backspace],
+        &[KeyCode::Backspace],
+        "",
+    );
+    editor.escape();
+    assert_eq!(editor.text(), "ab\nabc");
+    editor.cursor = vimloating::editor::Pos { row: 1, col: 0 };
+    editor.normal_key('.');
+    assert_eq!(editor.text(), "ab\nab");
+    editor.undo(false);
+    assert_eq!(editor.text(), "ab\nabc");
 }
 
 #[test]
@@ -113,6 +154,7 @@ fn desktop_frames_stop_held_backspace_on_escape_until_release() {
         "",
     );
     let cursor_after_escape = editor.cursor;
+    assert_eq!(editor.text(), "abcde");
     keyboard.frame(&mut editor, 0.5, &[KeyCode::Backspace], &[], "");
     assert_eq!(editor.cursor, cursor_after_escape);
     keyboard.frame(&mut editor, 0.6, &[], &[], "");
@@ -124,7 +166,7 @@ fn desktop_frames_stop_held_backspace_on_escape_until_release() {
         "",
     );
     assert_eq!(editor.cursor.col, cursor_after_escape.col - 1);
-    assert_eq!(editor.text(), "abcdef");
+    assert_eq!(editor.text(), "abcde");
 }
 
 #[test]
@@ -187,7 +229,7 @@ fn timed_insert_backspace_and_delete_repeat_and_undo_as_one_session() {
         assert_eq!(
             editor.text(),
             if key == KeyCode::Backspace {
-                "abcdef"
+                "abf"
             } else {
                 "def"
             }
@@ -202,7 +244,7 @@ fn timed_insert_backspace_and_delete_repeat_and_undo_as_one_session() {
 }
 
 #[test]
-fn held_insert_backspace_moves_and_delete_joins_lines_then_stops_after_escape() {
+fn held_insert_backspace_and_delete_join_lines_then_stop_after_escape() {
     for key in [KeyCode::Backspace, KeyCode::Delete] {
         let mut editor = Editor::new("ab\ncd", None);
         editor.cursor = vimloating::editor::Pos {
@@ -215,27 +257,13 @@ fn held_insert_backspace_moves_and_delete_joins_lines_then_stops_after_escape() 
             let fired = repeat_due(&mut state, Some(key), pressed, editor.mode, time).unwrap();
             handle_repeated_key(&mut editor, fired);
         }
-        assert_eq!(
-            editor.text(),
-            if key == KeyCode::Backspace {
-                "ab\ncd"
-            } else {
-                "ad"
-            }
-        );
+        assert_eq!(editor.text(), "ad");
         editor.escape();
         assert_eq!(
             repeat_due(&mut state, Some(key), false, editor.mode, 0.5),
             None
         );
-        assert_eq!(
-            editor.text(),
-            if key == KeyCode::Backspace {
-                "ab\ncd"
-            } else {
-                "ad"
-            }
-        );
+        assert_eq!(editor.text(), "ad");
         editor.undo(false);
         assert_eq!(editor.text(), "ab\ncd");
     }

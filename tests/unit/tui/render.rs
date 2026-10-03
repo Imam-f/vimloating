@@ -1,6 +1,31 @@
 use super::*;
 
 #[test]
+fn wrapped_indent_aligns_text_search_highlights_and_insert_cursor() {
+    let mut editor = Editor::new("  abcdefghijklmnopqrstuvwxyz", None);
+    editor.cursor.col = 17;
+    editor.begin_insert('i');
+    editor.search = "op".into();
+    let ui = Ui {
+        wrap: true,
+        ..Ui::default()
+    };
+    let mut terminal = Terminal::new(TestBackend::new(19, 7)).unwrap();
+    terminal.draw(|frame| draw(frame, &editor, &ui)).unwrap();
+    let buffer = terminal.backend().buffer();
+    let text = |y| (3..19).map(|x| buffer[(x, y)].symbol()).collect::<String>();
+    assert_eq!(text(0), "  abcdefghijklmn");
+    assert_eq!(text(1), "      opqrstuvwx");
+    assert_eq!(text(2), "      yz        ");
+    assert_eq!(buffer[(1, 1)].symbol(), ">");
+    assert_eq!(buffer[(9, 1)].bg, rgb(editor.theme.palette().search));
+    assert_eq!(buffer[(10, 1)].bg, rgb(editor.theme.palette().search));
+    let cursor: (u16, u16) = terminal.get_cursor_position().unwrap().into();
+    assert_eq!(cursor, (10, 1));
+    assert_eq!(editor.text(), "  abcdefghijklmnopqrstuvwxyz");
+}
+
+#[test]
 fn terminal_block_selection_highlights_only_the_rectangle_and_case_operators_work() {
     let mut editor = Editor::new("aBc\ndEf", None);
     let mut ui = Ui::default();

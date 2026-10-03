@@ -29,7 +29,8 @@ impl KeyboardInput {
 fn handle_repeated_key(editor: &mut Editor, key: KeyCode) -> bool {
     match key {
         KeyCode::N | KeyCode::P => editor.control_key(if key == KeyCode::N { 'n' } else { 'p' }),
-        KeyCode::Backspace if matches!(editor.mode, Mode::Normal | Mode::Visual | Mode::Insert) => {
+        KeyCode::Backspace if editor.mode == Mode::Insert => editor.backspace(),
+        KeyCode::Backspace if matches!(editor.mode, Mode::Normal | Mode::Visual) => {
             editor.move_back_character()
         }
         KeyCode::Delete if editor.mode == Mode::Insert => editor.delete_forward(),
@@ -394,7 +395,8 @@ fn handle_keyboard_input(
                     editor.count.clear();
                     editor.center_cursor(rows, cols, *word_wrap);
                 } else {
-                    editor.normal_key(ch);
+                    let (_, cols, _, _) = text_grid(*font_size);
+                    editor.normal_key_with_viewport(ch, cols, *word_wrap);
                 }
             }
             Mode::ShellOutput | Mode::BufferList | Mode::CommandWindow => {}

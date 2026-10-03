@@ -2,6 +2,8 @@
 
 A Rust text editor on a floating surface in 3D space, inspired by Kashikishi. A perspective grid, a straight-on text panel, and smoothly interpolated camera motion give you a spatial workspace. Rendering uses **OpenGL through Macroquad / Miniquad**.
 
+![vimloating desktop editor showing its welcome buffer in 2D mode](docs/screenshot.png)
+
 ## Run
 
 Install a current stable Rust toolchain and run:
@@ -50,7 +52,7 @@ Pass a directory to start in the file browser. A missing file opens a new empty 
 
 The TUI shares the desktop editor's Vim motions, counts, insert/visual modes, text objects and operators, block selections, marks, indentation folds, yank feedback, command/search history windows, undo/redo, live search highlights, character-find hints, buffers, file commands, directory browser, shell commands, themes, and unsaved-change protection. It includes line numbers, syntax colors, wrapping, a status line, and a command/search prompt. Terminal resizing updates the viewport. In shell output, buffer lists, and F1 help, use `j`/`k`, arrows, PageUp/PageDown, or Home/End to scroll; Esc returns to editing.
 
-Use your terminal's paste shortcut in Insert mode. On terminals that report bracketed-paste events, multiline text is inserted literally without interpreting it as editor commands. Windows console paste may arrive as individual keys, with the same auto-indentation as typing. Terminal fonts and clipboard access are managed by the terminal. Some terminals encode Ctrl+H as Backspace and Ctrl+J as Enter, or reserve Ctrl+S; those shortcuts depend on your terminal's settings. In Insert mode, Ctrl+H moves backward without deleting, Ctrl+I inserts four spaces, and Ctrl+J/M insert an auto-indented newline. The editor uses one cell per Unicode character: tabs display as `→`, while wide, zero-width, and control characters display as `�` to keep cursor positions aligned. Their original contents are preserved when saved.
+Use your terminal's paste shortcut in Insert mode. On terminals that report bracketed-paste events, multiline text is inserted literally without interpreting it as editor commands. Windows console paste may arrive as individual keys, with the same auto-indentation as typing. Terminal fonts and clipboard access are managed by the terminal. Some terminals encode Ctrl+H as Backspace and Ctrl+J as Enter, or reserve Ctrl+S; those shortcuts depend on your terminal's settings. In terminal Insert mode, Ctrl+H deletes the previous character, Ctrl+I inserts four spaces, and Ctrl+J/M insert an auto-indented newline. The editor uses one cell per Unicode character: tabs display as `→`, while wide, zero-width, and control characters display as `�` to keep cursor positions aligned. Their original contents are preserved when saved.
 
 The [configuration file](#configuration) supplies the startup theme for both frontends. Both frontends can be built together with `cargo build --release --all-features`.
 
@@ -95,7 +97,7 @@ Use `:theme` to show the current theme or `:theme everforest`, `:theme solarized
 | `F4` | Toggle flat-only/orbit in 3D; from 2D-only, enter orbit mode |
 | `F5` | Toggle 2D-only mode (on by default); fills the viewport and disables camera movement |
 
-The text is rendered into an offscreen OpenGL texture at 2× the window's physical pixel width (with a 3200-pixel minimum), recreated when the viewport or display scale changes. In 2D-only mode (enabled by default), that texture fills the viewport and camera movement is disabled; press `F5` to toggle it off or on. `F4` keeps its flat-only/orbit behavior in 3D, and exits 2D-only directly into orbit mode. Flat-only mode keeps the surface facing you and hides the scene frame and HUD. The floor grid starts hidden and can be shown with `F3`. Wheel zoom is deliberately gentle, and camera motion uses frame-rate-independent exponential smoothing. Mouse positioning uses a ray/plane intersection, so it continues to work when the surface is rotated.
+The text is rendered into an offscreen OpenGL texture at 2× the window's physical pixel width (with a 3200-pixel minimum), recreated when the viewport or display scale changes. Mipmaps are refreshed after drawing each frame, with trilinear filtering and a small bias toward finer levels to keep zoomed-out text sharp while smoothing zoom transitions. In 2D-only mode (enabled by default), that texture fills the viewport and camera movement is disabled; press `F5` to toggle it off or on. `F4` keeps its flat-only/orbit behavior in 3D, and exits 2D-only directly into orbit mode. Flat-only mode keeps the surface facing you and hides the scene frame and HUD. The floor grid starts hidden and can be shown with `F3`. Wheel zoom is deliberately gentle, and camera motion uses frame-rate-independent exponential smoothing. Mouse positioning uses a ray/plane intersection, so it continues to work when the surface is rotated.
 
 In 3D mode, moving the cursor within 24 pixels of a viewport edge or beyond it makes the camera smoothly pan to center the cursor. This also works in flat-only mode. In 2D-only mode, the editor scrolls to keep the cursor visible without moving the camera.
 
@@ -105,10 +107,13 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 
 | Input | Action |
 | --- | --- |
-| `h` `j` `k` `l` / arrow keys | Move left / down / up / right |
+| `h` / `l`, Left / Right | Move left / right |
+| `j` / `k` | Move down / up through wrapped display rows; counts supported |
+| `gj` / `gk`, Down / Up | Move down / up through original text lines; counts supported |
 | `Ctrl+N` / `Ctrl+P` | Next / previous line in Normal or Visual mode; next / previous matching history entry in command and search prompts |
 | `Home` / `End` | Move to line start / line end |
 | `w` `b` `e` | Next word / previous word / word end |
+| `ge` | End of the previous word, across lines; counts supported |
 | `f{char}` / `F{char}` | Find next / previous matching character on the line; pressing `f` / `F` highlights and underlines a suggested letter in every following / previous word |
 | `t{char}` / `T{char}` | Move just before / after the next / previous matching character; `t` / `T` show the same word-target hints |
 | `;` / `,` | Repeat the last character find in the same / opposite direction |
@@ -125,7 +130,7 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `I` / `A` | Insert at first nonblank / line end |
 | `o` / `O` | Open a line below / above, preserving indentation |
 | `x` / `X` / `D` | Delete under cursor / before cursor / to end of line |
-| `Backspace` | Move back one character without deleting in Normal, Visual, or Insert mode, crossing to the previous line at line start; hold to repeat |
+| `Backspace` | Move back one character without deleting in Normal or Visual mode; in Insert mode, delete the previous character or join with the previous line at line start; hold to repeat |
 | `Delete` in Insert mode | Delete under the cursor; hold to repeat |
 | `r{char}` | Replace characters under the cursor (with counts) or throughout a Visual selection; Enter replaces with a line break |
 | `~` / `g~~` | Toggle case of characters / whole lines (with counts), or the Visual selection; supports Unicode, undo and repeat |
@@ -170,7 +175,7 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `Ctrl+W` / `Ctrl+Backspace` in Insert mode | Delete the previous word |
 | `Ctrl+-` / `Ctrl+=` | Decrease / increase font size |
 
-Counts work with movements and common operations, such as `5j`, `3w`, `2dd`, `4yy`, and `2p`. Each Insert session is one undo step. In Insert mode, Enter auto-indents, Tab inserts four spaces, Backspace moves back without changing text, and Delete joins adjacent lines when at line end. Backspace at line start moves to the end of the previous line. Prompt Backspace deletes the previous character. After 15 seconds without keyboard, pointer, mouse-button, or scroll activity, Insert mode automatically returns to Normal. Vertical scroll keys keep the cursor visible, and can scroll past the end until only the final display line remains visible.
+Counts work with movements and common operations, such as `5j`, `3w`, `2dd`, `4yy`, and `2p`. Each Insert session is one undo step. In Insert mode, Enter auto-indents, Tab inserts four spaces, Backspace deletes the previous character and joins adjacent lines at line start, and Delete joins adjacent lines when at line end. In Normal or Visual mode, Backspace at line start moves to the end of the previous line. Prompt Backspace deletes the previous character. After 15 seconds without keyboard, pointer, mouse-button, or scroll activity, Insert mode automatically returns to Normal. Vertical scroll keys keep the cursor visible, and can scroll past the end until only the final display line remains visible.
 
 Insert path completion and `gf` resolve relative paths from the current file's directory, or the working directory for an unnamed buffer. `gf` also checks the working directory if the file is not found beside the current file. Absolute paths and `~/` paths work too. Quote filenames that contain spaces in buffer text, such as `"docs/my notes.txt"`; an address can follow the closing quote (`"docs/my notes.txt":12:3`). Line and column numbers start at 1. Opening a path keeps unsaved buffers in memory. Completion appends a separator to directories; press `Ctrl+X Ctrl+F` again to complete their contents. Completion is part of the Insert session's undo and `.` repeat.
 
@@ -182,7 +187,7 @@ Hold `Ctrl+N` / `Ctrl+P` to cycle completion matches, move through lines, or bro
 
 Character-find hints prefer the letter in each word requiring the fewest `;` repeats to reach; ties favor letters that occur less often in that word.
 
-Word wrap is on by default. Press Enter twice quickly in Normal mode to toggle it. `Ctrl+H` / `Ctrl+L` scroll the text horizontally; using either shortcut turns wrapping off so long lines can be scrolled. Font size can be adjusted from 12–42 px with the Ctrl+-/= shortcuts.
+Word wrap is on by default. Wrapped continuation rows start four spaces beyond the original line's leading whitespace; this is display padding and does not modify the file. Press Enter twice quickly in Normal mode to toggle wrapping. `Ctrl+H` / `Ctrl+L` scroll the text horizontally; using either shortcut turns wrapping off so long lines can be scrolled. Font size can be adjusted from 12–42 px with the Ctrl+-/= shortcuts.
 
 ### Search
 
@@ -244,11 +249,13 @@ General:
   - Go to end
   - Move between words
   - Enter
+  - New line before/after
   - Delete/Backspace
   - Move between char
   - Indent/deindent
   - Copy/Cut/Paste
   - Move between lines
+- Tab and window navigation
 
 Code editor:
 - More Vim options

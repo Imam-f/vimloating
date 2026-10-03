@@ -1,6 +1,103 @@
 use super::super::*;
 
 #[test]
+fn ge_moves_to_previous_word_end_from_inside_words_and_whitespace() {
+    for (start, expected) in [
+        (0, 0),
+        (1, 0),
+        (2, 0),
+        (3, 2),
+        (4, 2),
+        (5, 2),
+        (6, 2),
+        (7, 6),
+        (8, 6),
+        (12, 6),
+    ] {
+        let mut editor = Editor::new("one two three", None);
+        editor.cursor.col = start;
+        for key in "ge".chars() {
+            editor.normal_key(key);
+        }
+        assert_eq!(
+            editor.cursor,
+            Pos {
+                row: 0,
+                col: expected
+            },
+            "starting at {start}"
+        );
+        assert_eq!(editor.pending, None);
+        assert!(editor.count.is_empty());
+        assert!(!editor.dirty());
+    }
+}
+
+#[test]
+fn ge_supports_counts_unicode_identifiers_and_punctuation_words() {
+    let mut editor = Editor::new("αβ_γ..世界  λ", None);
+    editor.cursor.col = 10;
+    for expected in [7, 5, 3, 0, 0] {
+        for key in "ge".chars() {
+            editor.normal_key(key);
+        }
+        assert_eq!(editor.cursor.col, expected);
+    }
+    for keys in ["2ge", "g2e"] {
+        editor.cursor.col = 10;
+        for key in keys.chars() {
+            editor.normal_key(key);
+        }
+        assert_eq!(editor.cursor.col, 5);
+    }
+}
+
+#[test]
+fn ge_crosses_blank_lines_and_handles_empty_or_whitespace_buffers() {
+    let mut editor = Editor::new("αβ  \n\n  γδ\n", None);
+    editor.cursor = Pos { row: 3, col: 0 };
+    for expected in [
+        Pos { row: 2, col: 3 },
+        Pos { row: 0, col: 1 },
+        Pos { row: 0, col: 0 },
+    ] {
+        for key in "ge".chars() {
+            editor.normal_key(key);
+        }
+        assert_eq!(editor.cursor, expected);
+    }
+    for text in ["", "  \n\t\n "] {
+        let mut editor = Editor::new(text, None);
+        editor.cursor.row = editor.lines.len() - 1;
+        for key in "99ge".chars() {
+            editor.normal_key(key);
+        }
+        assert_eq!(editor.cursor, Pos::default());
+    }
+}
+
+#[test]
+fn ge_extends_a_visual_selection_and_resets_the_preferred_column() {
+    let mut editor = Editor::new("one two\n123456789", None);
+    editor.cursor.col = 6;
+    for key in "vge".chars() {
+        editor.normal_key_with_viewport(key, 5, true);
+    }
+    assert_eq!(editor.mode, Mode::Visual);
+    assert_eq!(editor.anchor.col, 6);
+    assert_eq!(editor.cursor.col, 2);
+    editor.normal_key('d');
+    assert_eq!(editor.text(), "on\n123456789");
+    editor.undo(false);
+    editor.normal_key('j');
+    editor.normal_key('g');
+    editor.normal_key('e');
+    assert_eq!(editor.cursor, Pos { row: 0, col: 6 });
+    editor.normal_key('j');
+    assert_eq!(editor.cursor, Pos { row: 1, col: 6 });
+}
+
+#[test]
 fn percent_matches_nested_multiline_delimiters_and_ignores_strings_and_comments() {
     let mut e = Editor::new("λ call({\n  \"}\"; /* } */ [value]\n})", None);
     e.normal_key('%');
