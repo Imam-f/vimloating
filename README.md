@@ -262,6 +262,7 @@ Code editor:
 - Tree-sitter support
 
 Renderer feature:
+- Make 3D feature optional in canvas mode
 - 3D control with keyboard
 - Full screen mode
 - Goyo + Limelight mode
