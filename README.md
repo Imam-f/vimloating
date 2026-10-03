@@ -232,19 +232,39 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 
 ## TODO
 
+General:
 - Use leader and localleader key for something
+- Add vim submode
 - Selection based command mode
+  - Find
+  - Replace
+  - Delete
 - Insert mode control
-- Outline
+  - Go to beginning
+  - Go to end
+  - Move between words
+  - Enter
+  - Delete/Backspace
+  - Move between char
+  - Indent/deindent
+  - Copy/Cut/Paste
+  - Move between lines
+
+Code editor:
 - More Vim options
+- Quickfixlist
 - Fuzzy finder / command palette
-- 3D control with keyboard
-- CLI command for TUI mode
+  - FZF/telescope/harpoon like?
+- Outline
 - LSP support
-- Completion
+- Code Completion
 - Hover
 - Tree-sitter support
+
+Renderer feature:
+- 3D control with keyboard
 - Full screen mode
+- Goyo + Limelight mode
 - Walk around mode
 - Popup mode
 - Full canvas support
@@ -254,6 +274,7 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 
 - Word, line, and file/path completion in Insert mode; path completion in Command mode; `gf` / `gF` open file addresses under the cursor
 - TUI mode (optional terminal frontend)
+- CLI command for TUI mode
 - Marks (buffer-local letter marks)
 - Indentation folds (replaceable fold provider for future Tree-sitter support)
 - Ctrl+N / Ctrl+P line movement and command/search history
