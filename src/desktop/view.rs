@@ -1,6 +1,6 @@
-use crate::config::{BOARD_H, BOARD_W, TEX_H, TEX_W, ZOOM_SENSITIVITY, ZOOM_SMOOTHING};
 use macroquad::camera::Camera;
 use macroquad::prelude::*;
+use vimloating::config::{BOARD_H, BOARD_W, TEX_H, TEX_W, ZOOM_SENSITIVITY, ZOOM_SMOOTHING};
 
 pub struct View {
     distance: f32,

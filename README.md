@@ -290,12 +290,13 @@ For a native OpenGL rendering smoke test, capture a frame and exit:
 cargo run -- --screenshot preview.png
 ```
 
-- `src/editor.rs` and `src/editor/`: buffer state, editing, Vim motions, file commands, viewport layout, and tests.
-- `src/config.rs`: window, renderer, and editor constants plus the welcome buffer.
-- `src/view.rs`: camera, zoom, orbit, pan, and surface picking.
-- `src/render.rs`: offscreen editor rendering and 3D scene.
-- `src/input.rs`: keyboard shortcuts and animated vertical movement.
-- `src/main.rs`: app setup and event loop.
-- `src/cli.rs`: desktop argument parsing and usage text.
-- `src/lib.rs`: shared editor and configuration library.
-- `src/tui.rs` and `src/bin/vimloating-tui.rs`: terminal rendering, input, lifecycle, and CLI.
+- `src/main.rs`: desktop binary entry point.
+- `src/lib.rs`: shared editor and configuration library, plus the optional TUI frontend.
+- `src/config/`: renderer/editor constants, themes, startup settings, and the welcome buffer.
+- `src/editor/`: buffer state and core methods, editing, motions, text objects, registers, repeat playback, search, file I/O, Ex commands, shell execution, viewport layout, and tests.
+- `src/desktop/`: desktop startup/event loop, CLI argument parsing, and camera controls.
+- `src/desktop/input/`: keyboard dispatch, key repeat, animated movement, and tests grouped by behavior.
+- `src/desktop/render/`: editor-surface rendering, text primitives, layout, completion popups, search highlights, and the 3D scene.
+- `src/tui/`: terminal session lifecycle, input, help text, rendering, and tests grouped by behavior.
+- `src/bin/vimloating-tui.rs`: terminal binary entry point and CLI.
+- `tests/desktop_cli.rs`: executable tests for desktop help, argument errors, and file-open errors.
