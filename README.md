@@ -20,6 +20,23 @@ The app runs as a native desktop window on Windows, Linux, and macOS. It needs a
 
 Running without a filename opens an editable introduction buffer. Save it under a name with `:w notes.rs`, or open another file with `:e path`.
 
+The desktop command accepts one file or directory and an optional screenshot destination:
+
+```text
+vimloating [--screenshot output.png] [--] [file or directory]
+```
+
+Pass a directory (for example, `cargo run --release -- .`) to start in the file browser. Use `--help` or `-h` to print usage without opening a window. Unknown options, extra paths, and missing screenshot destinations report an error and exit with a nonzero status. The screenshot option can appear before or after the file or directory.
+
+Use `--` before a filename starting with `-`; when using Cargo, its own `--` comes first:
+
+```sh
+cargo run --release -- -- -notes.rs
+cargo run --release -- "docs/my notes.rs" --screenshot preview.png
+```
+
+For a screenshot destination starting with `-`, use an explicit relative path such as `./-preview.png`. `--screenshot` may be specified once and captures a frame before exiting.
+
 ## Terminal editor
 
 Run the editor directly in your terminal, with no window or OpenGL dependency:
@@ -35,7 +52,34 @@ The TUI shares the desktop editor's Vim motions, counts, insert/visual modes, te
 
 Use your terminal's paste shortcut in Insert mode. On terminals that report bracketed-paste events, multiline text is inserted literally without interpreting it as editor commands. Windows console paste may arrive as individual keys, with the same auto-indentation as typing. Terminal fonts and clipboard access are managed by the terminal. Some terminals encode Ctrl+H as Backspace and Ctrl+J as Enter, or reserve Ctrl+S; those shortcuts depend on your terminal's settings. In Insert mode, Ctrl+H moves backward without deleting, Ctrl+I inserts four spaces, and Ctrl+J/M insert an auto-indented newline. The editor uses one cell per Unicode character: tabs display as `→`, while wide, zero-width, and control characters display as `�` to keep cursor positions aligned. Their original contents are preserved when saved.
 
-The `theme` setting in `~/.vimfloating` also applies to the TUI. Both frontends can be built together with `cargo build --release --all-features`.
+The [configuration file](#configuration) supplies the startup theme for both frontends. Both frontends can be built together with `cargo build --release --all-features`.
+
+## Configuration
+
+Create a UTF-8 file named `.vimfloating` in your home directory:
+
+- Windows: `%USERPROFILE%\.vimfloating`, typically `C:\Users\YourName\.vimfloating`.
+- Linux/macOS: `$HOME/.vimfloating`, also written as `~/.vimfloating`.
+
+The editor checks `USERPROFILE` first, then `HOME` if `USERPROFILE` is unset. Both frontends read the file once at startup; restart the editor after changing it.
+
+Use one `key=value` setting per line, without quotes or section headers. For example, this selects Everforest and starts the desktop frontend in 3D flat-only mode:
+
+```ini
+theme=everforest
+2d_only=false
+```
+
+| Setting | Values | Default | Applies to |
+| --- | --- | --- | --- |
+| `theme` | `default` (alias `vimfloating`), `everforest`, or `solarized-blue` (aliases `solarized-dark-blue` and `solarized`) | `default` | Desktop and TUI |
+| `2d_only` | `true` or `false` | `true` | Desktop; ignored by the TUI |
+
+`2d_only=true` fills the viewport with the editor and disables camera movement. With `false`, the editor starts on a floating surface facing you; press `F4` to enable orbit mode. `F5` toggles 2D-only mode during the session.
+
+Keys are case-sensitive; theme names are case-insensitive, and booleans must be lowercase. Spaces around keys and values are allowed. Blank lines, lines without `=`, and unknown keys are ignored. Missing or invalid settings use their defaults; if a key appears more than once, its last value is used. A missing or unreadable file also uses the defaults.
+
+Use `:theme` to show the current theme or `:theme everforest`, `:theme solarized-blue`, or `:theme default` to change it during the session. Theme commands and camera toggles do not write back to `.vimfloating`; edit the file to change startup preferences.
 
 ## Move through space
 
@@ -108,14 +152,14 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `.` | Repeat the last change |
 | `Ctrl+C` | Return to Normal; from a history window, transfer its selected line to the prompt |
 | `q:` / `q/` (also `q\`) inside Command mode | Edit command / search history with Vim keys after entering `:`; Enter executes the selected line, Ctrl+C transfers it to the prompt, Esc closes |
-| `/pattern` / `?pattern`, `Enter` | Search forward / backward with live highlights and wraparound |
+| `/pattern` / `?pattern`, `Enter` | Search forward / backward for literal, case-sensitive text with live highlights and wraparound |
 | `n` / `N` | Repeat in the last search direction / opposite direction |
 | `*` / `#` | Search forward / backward for the complete word under or after the cursor; counts and n/N repeat with wraparound |
 | `Ctrl+6` | Toggle to the last active buffer |
 | `Ctrl+E` / `Ctrl+Y` | Scroll down / up one display line |
 | `Ctrl+D` / `Ctrl+U` | Scroll down / up half a page, then center the view |
 | `Ctrl+F` / `Ctrl+B` | Scroll down / up one page, then center the view |
-| `Ctrl+J` / `Ctrl+K` | Animate through five lines down / up |
+| `Ctrl+J` / `Ctrl+K` | Desktop: animate through five lines down / up; TUI: scroll five display lines down / up, keeping the cursor visible |
 | `PageDown` / `PageUp` | Move a page down / up |
 | `Ctrl+S` | Save to the current filename |
 | `Ctrl+V` in Insert mode | Paste system clipboard text |
@@ -139,6 +183,14 @@ Hold `Ctrl+N` / `Ctrl+P` to cycle completion matches, move through lines, or bro
 Character-find hints prefer the letter in each word requiring the fewest `;` repeats to reach; ties favor letters that occur less often in that word.
 
 Word wrap is on by default. Press Enter twice quickly in Normal mode to toggle it. `Ctrl+H` / `Ctrl+L` scroll the text horizontally; using either shortcut turns wrapping off so long lines can be scrolled. Font size can be adjusted from 12–42 px with the Ctrl+-/= shortcuts.
+
+### Search
+
+Both frontends search for literal, case-sensitive text. For example, `/foo` matches `foo` within `foobar`, but not `Foo`; `/foo.*` matches the exact text `foo.*`. Regular expressions, Vim pattern escapes, and matches spanning line breaks are not supported. Unicode characters and spaces are matched as entered.
+
+Matches highlight as you type; Enter jumps to the next match in the chosen direction, wrapping at the file boundary. Enter with an empty `/` or `?` prompt reuses the previous search. `n` repeats in the last search direction, `N` reverses it, and counts such as `3n` advance through several matches. Esc cancels the prompt and retains the previous search.
+
+`*` and `#` search for the complete word under or after the cursor, forward or backward. Words consist of letters, numbers, and underscores, including Unicode; these searches match whole words rather than substrings, and `n` / `N` retain that behavior. `:noh` / `:nohlsearch` clears both highlighting and the stored pattern, so repeating a search requires entering a new pattern or using `*` / `#` again.
 
 ### Commands
 
@@ -165,7 +217,7 @@ Type `:`, enter a command, and press Enter. Press Tab to complete command names 
 | `:q` | Quit if there are no unsaved changes |
 | `:q!` | Quit and discard changes |
 | `:wq [path/to/file]` / `:x [path/to/file]` | Save and quit; an optional path saves under that filename |
-| `:noh` / `:nohlsearch` | Clear search highlighting |
+| `:noh` / `:nohlsearch` | Clear search highlighting and the stored pattern |
 | `:help` | Show a compact bindings reminder |
 
 Buffer IDs are shown by `:ls`. Buffer names match the full path or just the filename, case-insensitively; use a unique prefix if you do not enter the whole name. For example, `:b notes` switches to `notes.rs` when it is the only matching buffer, and `:bd 2` deletes buffer 2. Deleting a buffer keeps its file on disk. Deleting the last buffer leaves an empty editable buffer.
@@ -244,5 +296,6 @@ cargo run -- --screenshot preview.png
 - `src/render.rs`: offscreen editor rendering and 3D scene.
 - `src/input.rs`: keyboard shortcuts and animated vertical movement.
 - `src/main.rs`: app setup and event loop.
+- `src/cli.rs`: desktop argument parsing and usage text.
 - `src/lib.rs`: shared editor and configuration library.
 - `src/tui.rs` and `src/bin/vimloating-tui.rs`: terminal rendering, input, lifecycle, and CLI.

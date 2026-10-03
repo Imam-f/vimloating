@@ -1,3 +1,4 @@
+mod cli;
 mod input;
 mod render;
 mod view;
@@ -7,47 +8,48 @@ use config::*;
 use editor::{Editor, Mode, Pos, buffers::BufferList};
 use input::{KeyRepeat, VerticalMotion, advance_vertical_motion, handle_keyboard};
 use macroquad::prelude::*;
-use std::path::PathBuf;
+use std::{path::PathBuf, process::ExitCode};
 use view::View;
 use vimloating::{config, editor};
 
-#[macroquad::main(window_conf)]
-async fn main() {
-    let mut args = std::env::args_os().skip(1);
-    let mut path = None;
-    let mut screenshot = None;
-    while let Some(arg) = args.next() {
-        if arg == "--screenshot" {
-            let Some(destination) = args.next() else {
-                eprintln!("Usage: vimloating [file] [--screenshot output.png]");
-                return;
-            };
-            screenshot = Some(PathBuf::from(destination));
-        } else if arg == "--help" || arg == "-h" {
-            println!(
-                "vimloating [file] [--screenshot output.png]\n\nWheel: zoom · right drag: orbit · middle drag: pan\ni: insert · Esc: normal · :help: bindings · :w path: save"
-            );
-            return;
-        } else if path.is_none() {
-            path = Some(PathBuf::from(arg));
-        } else {
-            eprintln!("Unexpected argument: {}", arg.to_string_lossy());
-            return;
+fn main() -> ExitCode {
+    match start() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => {
+            eprintln!("vimloating: {err}");
+            ExitCode::FAILURE
         }
     }
+}
 
-    let mut editor = if let Some(path) = path {
+fn start() -> Result<(), String> {
+    let args = cli::parse(std::env::args_os().skip(1))
+        .map_err(|err| format!("{err}\nUsage: {}", cli::USAGE))?;
+    let cli::DesktopArgs::Run { path, screenshot } = args else {
+        println!("{}", cli::HELP);
+        return Ok(());
+    };
+    let editor = if let Some(path) = path {
         match Editor::open_path(path.clone()) {
             Ok(editor) => editor,
-            Err(_) if !path.exists() => Editor::new("", Some(path)),
             Err(err) => {
-                eprintln!("Cannot open {}: {err}", path.display());
-                return;
+                if path
+                    .try_exists()
+                    .map_err(|err| format!("Cannot access {}: {err}", path.display()))?
+                {
+                    return Err(format!("Cannot open {}: {err}", path.display()));
+                }
+                Editor::new("", Some(path))
             }
         }
     } else {
         Editor::new(WELCOME, None)
     };
+    macroquad::Window::from_config(window_conf(), run_editor(editor, screenshot));
+    Ok(())
+}
+
+async fn run_editor(mut editor: Editor, screenshot: Option<PathBuf>) {
     let user_config = load_user_config();
     editor.set_fold_provider(Box::new(editor::folds::IndentFoldProvider));
     editor.theme = user_config.theme.unwrap_or_default();

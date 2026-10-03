@@ -26,7 +26,7 @@ use std::{
 use unicode_width::UnicodeWidthChar;
 
 pub const WELCOME: &str = "// vimloating — terminal editor\n\n// i: insert · Esc: normal · h j k l: move · w b e: words\n// v / V: select · y / d: yank / delete · p: paste\n// u / Ctrl+R: undo / redo · / or ?: search · n / N: repeat\n// :w notes.rs: save · :e path: open · :Explore: browse\n// :ls: buffers · :bn / :bp: switch · :q: quit · :q!: discard\n// :theme everforest / solarized-blue: colors\n// Enter Enter: toggle wrap · F1: terminal controls\n\n";
-const HELP: &str = "vimloating terminal controls\n\ni / a / I / A / o / O   Insert text\nEsc / Ctrl+C           Return to Normal mode\nh j k l / arrows       Move; counts supported\nw b e · gg G · f F t T  Vim motions and character-find hints\ngf / gF               Open path[:line[:column]] under cursor\nInsert: Ctrl+X Ctrl+F  Complete file / directory path\nInsert: Ctrl+X Ctrl+L  Complete whole line\nInsert: Ctrl+N / P     Complete word / cycle popup matches\nHold Ctrl+N / P       Repeat completion / motion / history\nBackspace             Move back one character; hold to repeat\nInsert: Delete        Delete under cursor; hold to repeat\nCommand: Tab          Complete command / path\nv / V · y d x · p P    Select, yank, delete, paste\nu / Ctrl+R             Undo / redo\n/ or ? · n / N         Search forward/backward and repeat\n:w [path] · Ctrl+S     Save\n:e path · :Explore     Open file / directory browser\n:ls · :b id · :bn :bp  List / switch buffers\nCtrl+6 / Ctrl+^        Last active buffer (terminal dependent)\n:!command · :.!command Shell output / filter current line\n:q / :q! / :wq         Quit / discard / save and quit\nEnter Enter            Toggle word wrap in Normal mode\nCtrl+E / Y             Scroll one display line\nCtrl+D / U · F / B     Half-page / full-page movement\nCtrl+H / L             Horizontal scroll (disables wrap)\nCtrl+J / K             Move five lines (terminal dependent)\nAlt+J / K              Move current or selected lines\nTerminal paste         Paste in Insert mode\nOutput: j/k, PgUp/Down Scroll captured output / buffer list\nF1 / Esc               Close this help\n\nFont size and clipboard shortcuts are controlled by your terminal.";
+const HELP: &str = "vimloating terminal controls\n\ni / a / I / A / o / O   Insert text\nEsc / Ctrl+C           Return to Normal mode\nh j k l / arrows       Move; counts supported\nw b e · gg G · f F t T  Vim motions and character-find hints\ngf / gF               Open path[:line[:column]] under cursor\nInsert: Ctrl+X Ctrl+F  Complete file / directory path\nInsert: Ctrl+X Ctrl+L  Complete whole line\nInsert: Ctrl+N / P     Complete word / cycle popup matches\nHold Ctrl+N / P       Repeat completion / motion / history\nBackspace             Move back one character; hold to repeat\nInsert: Delete        Delete under cursor; hold to repeat\nCommand: Tab          Complete command / path\nv / V · y d x · p P    Select, yank, delete, paste\nu / Ctrl+R             Undo / redo\n/ or ? · n / N         Search forward/backward and repeat\n:w [path] · Ctrl+S     Save\n:e path · :Explore     Open file / directory browser\n:ls · :b id · :bn :bp  List / switch buffers\nCtrl+6 / Ctrl+^        Last active buffer (terminal dependent)\n:!command · :.!command Shell output / filter current line\n:q / :q! / :wq         Quit / discard / save and quit\nEnter Enter            Toggle word wrap in Normal mode\nCtrl+E / Y             Scroll one display line\nCtrl+D / U · F / B     Half-page / full-page movement\nCtrl+H / L             Horizontal scroll (disables wrap)\nCtrl+J / K             Scroll five display lines (terminal dependent)\nAlt+H / L              Unindent / indent current or selected lines\nAlt+J / K              Move current or selected lines\nNormal: Ctrl+A / X     Increment / decrement number; counts supported\nTerminal paste         Paste in Insert mode\nOutput: j/k, PgUp/Down Scroll captured output / buffer list\nF1 / Esc               Close this help\n\nFont size and clipboard shortcuts are controlled by your terminal.";
 
 /// Restores terminal state on normal return, I/O errors, and unwinding panics.
 struct TerminalSession;
@@ -263,6 +263,11 @@ fn handle_key(editor: &mut Editor, ui: &mut Ui, key: KeyEvent, rows: usize, cols
                 editor.save(None);
             }
             KeyCode::Char('r') if editor.mode == Mode::Normal => editor.undo(true),
+            KeyCode::Char(ch @ ('a' | 'x')) if editor.mode == Mode::Normal => {
+                let amount = editor.count.parse::<i128>().unwrap_or(1).clamp(1, 10_000);
+                editor.count.clear();
+                editor.adjust_number(if ch == 'a' { amount } else { -amount });
+            }
             KeyCode::Char('6' | '^') if editor.mode == Mode::Normal => {
                 editor.buffer_action = Some(BufferAction::Last)
             }
@@ -291,7 +296,9 @@ fn handle_key(editor: &mut Editor, ui: &mut Ui, key: KeyEvent, rows: usize, cols
                 cols,
                 ui.wrap,
             ),
-            KeyCode::Char(ch @ ('j' | 'k')) => editor.move_by(0, if ch == 'j' { 1 } else { -1 }, 5),
+            KeyCode::Char(ch @ ('j' | 'k')) => {
+                editor.scroll_vertical(if ch == 'j' { 1 } else { -1 }, 5, rows, cols, ui.wrap)
+            }
             KeyCode::Char(ch @ ('h' | 'l')) => {
                 ui.wrap = false;
                 editor.scroll_horizontal(if ch == 'h' { -1 } else { 1 }, cols);
@@ -304,6 +311,8 @@ fn handle_key(editor: &mut Editor, ui: &mut Ui, key: KeyEvent, rows: usize, cols
     if key.modifiers.contains(KeyModifiers::ALT) {
         if matches!(editor.mode, Mode::Normal | Mode::Visual) {
             match key.code {
+                KeyCode::Char('h' | 'H') => editor.change_indent(false),
+                KeyCode::Char('l' | 'L') => editor.change_indent(true),
                 KeyCode::Char('j' | 'J') => editor.move_line(1),
                 KeyCode::Char('k' | 'K') => editor.move_line(-1),
                 _ => {}
@@ -827,6 +836,125 @@ mod tests {
         assert_eq!(editor.prompt, "theme default");
         control(&mut editor, &mut ui, 'n');
         assert_eq!(editor.prompt, "theme");
+    }
+
+    #[test]
+    fn terminal_alt_h_l_indent_lines_and_visual_selections_with_undo_and_repeat() {
+        let mut editor = Editor::new("one\ntwo\nthree", None);
+        let mut ui = Ui::default();
+        let alt = |editor: &mut Editor, ui: &mut Ui, ch| {
+            handle_key(
+                editor,
+                ui,
+                KeyEvent::new(KeyCode::Char(ch), KeyModifiers::ALT),
+                8,
+                20,
+            );
+        };
+        alt(&mut editor, &mut ui, 'l');
+        assert_eq!(editor.text(), "    one\ntwo\nthree");
+        assert_eq!(editor.cursor.col, 4);
+        press(&mut editor, &mut ui, KeyCode::Char('u'));
+        assert_eq!(editor.text(), "one\ntwo\nthree");
+        assert_eq!(editor.cursor.col, 0);
+
+        type_keys(&mut editor, &mut ui, "Vj");
+        let endpoints = (editor.anchor, editor.cursor);
+        alt(&mut editor, &mut ui, 'L');
+        assert_eq!(editor.text(), "    one\n    two\nthree");
+        assert_eq!(editor.mode, Mode::Visual);
+        assert_eq!((editor.anchor, editor.cursor), endpoints);
+        alt(&mut editor, &mut ui, 'h');
+        assert_eq!(editor.text(), "one\ntwo\nthree");
+        alt(&mut editor, &mut ui, 'l');
+        alt(&mut editor, &mut ui, 'H');
+        assert_eq!(editor.text(), "one\ntwo\nthree");
+
+        press(&mut editor, &mut ui, KeyCode::Esc);
+        alt(&mut editor, &mut ui, 'l');
+        type_keys(&mut editor, &mut ui, "j.");
+        assert_eq!(editor.text(), "one\n    two\n    three");
+        press(&mut editor, &mut ui, KeyCode::Char('u'));
+        assert_eq!(editor.text(), "one\n    two\nthree");
+    }
+
+    #[test]
+    fn terminal_control_a_x_adjust_numbers_with_counts_undo_and_repeat() {
+        let mut editor = Editor::new("value -009", None);
+        let mut ui = Ui::default();
+        type_keys(&mut editor, &mut ui, "3");
+        control(&mut editor, &mut ui, 'a');
+        assert_eq!(editor.text(), "value -006");
+        assert!(editor.count.is_empty());
+        type_keys(&mut editor, &mut ui, "2");
+        control(&mut editor, &mut ui, 'x');
+        assert_eq!(editor.text(), "value -008");
+        assert!(editor.count.is_empty());
+        press(&mut editor, &mut ui, KeyCode::Char('.'));
+        assert_eq!(editor.text(), "value -010");
+        press(&mut editor, &mut ui, KeyCode::Char('u'));
+        assert_eq!(editor.text(), "value -008");
+        control(&mut editor, &mut ui, 'r');
+        assert_eq!(editor.text(), "value -010");
+
+        press(&mut editor, &mut ui, KeyCode::Char('v'));
+        control(&mut editor, &mut ui, 'a');
+        control(&mut editor, &mut ui, 'x');
+        assert_eq!(editor.text(), "value -010");
+        assert_eq!(editor.mode, Mode::Visual);
+    }
+
+    #[test]
+    fn terminal_control_j_k_scroll_viewport_and_keep_cursor_visible() {
+        let text = (0..30)
+            .map(|row| format!("line {row}\n"))
+            .collect::<String>();
+        let mut editor = Editor::new(&text, None);
+        let mut ui = Ui::default();
+        editor.cursor = Pos { row: 6, col: 2 };
+        control(&mut editor, &mut ui, 'j');
+        assert_eq!(editor.top, 5);
+        assert_eq!(editor.cursor, Pos { row: 6, col: 2 });
+        editor.reveal_cursor(8, 20, ui.wrap);
+        assert_eq!(editor.top, 5);
+        control(&mut editor, &mut ui, 'k');
+        assert_eq!(editor.top, 0);
+        assert_eq!(editor.cursor, Pos { row: 6, col: 2 });
+        control(&mut editor, &mut ui, 'k');
+        assert_eq!(editor.top, 0);
+
+        control(&mut editor, &mut ui, 'j');
+        control(&mut editor, &mut ui, 'j');
+        assert_eq!(editor.top, 10);
+        assert_eq!(editor.cursor, Pos { row: 10, col: 2 });
+        for _ in 0..10 {
+            control(&mut editor, &mut ui, 'j');
+        }
+        assert_eq!(editor.top, 30);
+        assert_eq!(editor.cursor.row, 30);
+        assert_eq!(editor.text(), text);
+        assert!(!editor.dirty());
+    }
+
+    #[test]
+    fn terminal_control_j_k_scroll_wrapped_display_lines() {
+        let mut editor = Editor::new(&format!("{}\ntail", "a".repeat(200)), None);
+        let mut ui = Ui {
+            wrap: true,
+            ..Ui::default()
+        };
+        editor.cursor.col = 121;
+        control(&mut editor, &mut ui, 'j');
+        assert_eq!(editor.top, 5);
+        assert_eq!(editor.cursor, Pos { row: 0, col: 121 });
+        control(&mut editor, &mut ui, 'k');
+        assert_eq!(editor.top, 0);
+        assert_eq!(editor.cursor, Pos { row: 0, col: 121 });
+        control(&mut editor, &mut ui, 'j');
+        control(&mut editor, &mut ui, 'j');
+        assert_eq!(editor.top, 10);
+        assert_eq!(editor.cursor, Pos { row: 1, col: 1 });
+        assert!(!editor.dirty());
     }
 
     #[test]
