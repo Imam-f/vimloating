@@ -293,10 +293,11 @@ cargo run -- --screenshot preview.png
 - `src/main.rs`: desktop binary entry point.
 - `src/lib.rs`: shared editor and configuration library, plus the optional TUI frontend.
 - `src/config/`: renderer/editor constants, themes, startup settings, and the welcome buffer.
-- `src/editor/`: buffer state and core methods, editing, motions, text objects, registers, repeat playback, search, file I/O, Ex commands, shell execution, viewport layout, and tests.
+- `src/editor/`: buffer state and core methods, editing, motions, text objects, registers, repeat playback, search, file I/O, Ex commands, shell execution, and viewport layout.
 - `src/desktop/`: desktop startup/event loop, CLI argument parsing, and camera controls.
-- `src/desktop/input/`: keyboard dispatch, key repeat, animated movement, and tests grouped by behavior.
+- `src/desktop/input/`: keyboard dispatch, key repeat, and animated movement.
 - `src/desktop/render/`: editor-surface rendering, text primitives, layout, completion popups, search highlights, and the 3D scene.
-- `src/tui/`: terminal session lifecycle, input, help text, rendering, and tests grouped by behavior.
+- `src/tui/`: terminal session lifecycle, input, help text, and rendering.
 - `src/bin/vimloating-tui.rs`: terminal binary entry point and CLI.
-- `tests/desktop_cli.rs`: executable tests for desktop help, argument errors, and file-open errors.
+- `tests/unit/`: configuration, editor, desktop, and TUI tests grouped by component and behavior. These are attached to their source modules with `#[cfg(test)]` and `#[path]`, preserving access to private code.
+- `tests/integration/`: executable tests for desktop help, argument errors, and file-open errors; registered as the `desktop_cli` test target in `Cargo.toml`.

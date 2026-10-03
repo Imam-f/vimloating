@@ -206,4 +206,5 @@ pub struct Editor {
 }
 
 #[cfg(test)]
+#[path = "../../tests/unit/editor/mod.rs"]
 mod tests;

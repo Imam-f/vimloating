@@ -21,6 +21,11 @@ name = "vimloating-tui"
 path = "src/bin/vimloating-tui.rs"
 required-features = ["tui"]
 
+[[test]]
+name = "desktop_cli"
+path = "tests/integration/desktop_cli.rs"
+required-features = ["graphics"]
+
 [dependencies]
 macroquad = { version = "0.4.14", optional = true }
 crossterm = { version = "0.28", optional = true }

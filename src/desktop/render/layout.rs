@@ -67,12 +67,5 @@ pub fn cursor_board_position(editor: &Editor, font_size: u16, word_wrap: bool) -
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn cursor_row_is_relative_to_the_scrolled_viewport() {
-        assert_eq!(visible_cursor_row(12, 10, 5), Some(2));
-        assert_eq!(visible_cursor_row(9, 10, 5), None);
-        assert_eq!(visible_cursor_row(15, 10, 5), None);
-    }
-}
+#[path = "../../../tests/unit/desktop/render/layout.rs"]
+mod tests;

@@ -449,4 +449,5 @@ fn handle_keyboard_input(
 }
 
 #[cfg(test)]
+#[path = "../../../tests/unit/desktop/input/mod.rs"]
 mod tests;

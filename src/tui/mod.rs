@@ -114,4 +114,5 @@ pub fn run(editor: Editor) -> io::Result<()> {
 }
 
 #[cfg(test)]
+#[path = "../../tests/unit/tui/mod.rs"]
 mod tests;
