@@ -238,6 +238,9 @@ Files are normalized to LF line endings when opened. Existing tab characters are
 ## TODO
 
 General:
+- [ ] Add `gi`.
+- [ ] Add `Ctrl+I`.
+- [ ] Add `Ctrl+O`.
 - Use leader and localleader key for something
 - Add vim submode
 - Selection based command mode
