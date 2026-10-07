@@ -165,6 +165,7 @@ The default `<leader>` key is `Space`.
 | `<leader><leader>` | Toggle to the last active buffer |
 | `<leader>e` | Browse the current file's directory (or the working directory) |
 | `:Files` / `:Gfiles` / `:Gfiles?` | Fuzzy-pick files from `rg --files`, Git, or Git status |
+| `:Rg [pattern]` | Search file contents with ripgrep and jump to a match |
 | `:Buffer` / `:Blines` / `:Lines` | Pick a buffer, a line from any buffer, or a line in the active buffer |
 | `:Marks` / `:History` | Pick a marked line or a recently opened file |
 | `:History:` / `:History/` | Pick a command or search history entry |

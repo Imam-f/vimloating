@@ -37,6 +37,7 @@ pub(super) const COMMAND_NAMES: &[&str] = &[
     "nohlsearch",
     "q",
     "q!",
+    "Rg",
     "theme",
     "w",
     "wq",
@@ -233,6 +234,7 @@ impl Editor {
                 self.buffer_action = Some(BufferAction::StartPicker(PickerSource::Commands))
             }
             "Help" => self.buffer_action = Some(BufferAction::StartPicker(PickerSource::Help)),
+            "Rg" => self.buffer_action = Some(BufferAction::StartRgPicker(arg.to_owned())),
             "noh" | "nohlsearch" => self.search.clear(),
             _ => {
                 if let Ok(line) = command.parse::<usize>() {

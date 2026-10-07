@@ -89,6 +89,7 @@ impl BufferList {
             Some(BufferAction::List) => self.show_list(),
             Some(BufferAction::Delete { target, force }) => self.delete(target.as_deref(), force),
             Some(BufferAction::StartPicker(source)) => self.start_picker(source),
+            Some(BufferAction::StartRgPicker(query)) => self.active_mut().start_rg_picker(query),
             Some(BufferAction::PickerSelect(target)) => self.select_picker(target),
             None => {}
         }
@@ -258,6 +259,7 @@ impl BufferList {
                     })
                     .collect())
             }
+            PickerSource::Ripgrep => Ok(Vec::new()),
         }
     }
 
@@ -268,6 +270,18 @@ impl BufferList {
                     self.remember_file(&path);
                 } else {
                     self.open(path, false);
+                }
+            }
+            PickerTarget::FileLine { path, row, col } => {
+                if !same_path(self.active().path.as_deref(), Some(&path)) {
+                    self.open(path.clone(), false);
+                }
+                if same_path(self.active().path.as_deref(), Some(&path)) {
+                    let editor = self.active_mut();
+                    editor.cursor.row = row.min(editor.lines.len() - 1);
+                    editor.cursor.col = col;
+                    editor.clamp();
+                    editor.follow_cursor_horizontally();
                 }
             }
             PickerTarget::Buffer { buffer_id } => {

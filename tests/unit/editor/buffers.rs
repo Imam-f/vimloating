@@ -298,6 +298,81 @@ fn rg_and_git_picker_commands_use_the_external_tools() {
 }
 
 #[test]
+fn rg_picker_searches_live_and_jumps_to_the_match_position() {
+    if std::process::Command::new("rg")
+        .arg("--version")
+        .output()
+        .is_err()
+    {
+        return;
+    }
+
+    let mut buffers = crate::editor::buffers::BufferList::new(Editor::new("search source", None));
+    buffers.active_mut().command("Rg");
+    buffers.process_pending();
+    assert!(
+        buffers
+            .active()
+            .output_view
+            .as_deref()
+            .unwrap()
+            .contains("Type a pattern")
+    );
+
+    for ch in "## Terminal editor".chars() {
+        buffers.active_mut().picker_type(ch);
+    }
+    assert!(
+        buffers
+            .active()
+            .output_view
+            .as_deref()
+            .unwrap()
+            .contains("README.md:42:1")
+    );
+    buffers.active_mut().accept_picker();
+    buffers.process_pending();
+    assert!(
+        buffers
+            .active()
+            .path
+            .as_deref()
+            .unwrap()
+            .ends_with("README.md")
+    );
+    assert_eq!(buffers.active().cursor.row, 41);
+    assert_eq!(buffers.active().cursor.col, 0);
+}
+
+#[test]
+fn picker_cursor_moves_within_the_visible_window_before_it_scrolls() {
+    let text = (0..20)
+        .map(|row| format!("line {row}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let mut buffers = crate::editor::buffers::BufferList::new(Editor::new(&text, None));
+    buffers.active_mut().command("Lines");
+    buffers.process_pending();
+
+    for _ in 0..13 {
+        buffers.active_mut().picker_move(1);
+    }
+    let before_scroll = buffers.active().output_view.clone().unwrap();
+    assert!(before_scroll.contains(">    14  line 13"));
+    buffers.active_mut().picker_move(1);
+    let after_scroll = buffers.active().output_view.clone().unwrap();
+    assert!(after_scroll.starts_with(":Lines  20 matches"));
+    buffers.active_mut().picker_move(-1);
+    let after_move_up = buffers.active().output_view.as_deref().unwrap();
+    assert!(after_move_up.contains(">    14  line 13"));
+    assert_eq!(
+        after_scroll.lines().nth(3),
+        after_move_up.lines().nth(3),
+        "moving up from the lower edge should move the selection before scrolling the list"
+    );
+}
+
+#[test]
 fn marks_histories_commands_and_help_topics_are_pickable() {
     let unique = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

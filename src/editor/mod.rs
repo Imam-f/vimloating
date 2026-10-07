@@ -72,6 +72,7 @@ pub enum BufferAction {
         force: bool,
     },
     StartPicker(PickerSource),
+    StartRgPicker(String),
     PickerSelect(PickerTarget),
 }
 

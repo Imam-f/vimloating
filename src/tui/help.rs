@@ -37,6 +37,7 @@ u / Ctrl+R             Undo / redo
 :ls · :b id · :bn :bp  List / switch buffers
 :Files / :Gfiles       Fuzzy-pick files (rg / Git)
 :Gfiles?               Pick files listed by Git status
+:Rg [pattern]          Search file contents with ripgrep
 :Buffer / :Blines      Pick a buffer / line from any buffer
 :Lines / :Marks        Pick active-buffer lines / marked lines
 :History / :History:   Recent files / command history

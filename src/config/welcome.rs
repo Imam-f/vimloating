@@ -31,6 +31,7 @@ fn main() {
 //   :theme everforest / solarized-blue  change the colors
 //   :ls             list buffers · :b 2 switches · :bn / :bp cycles · :bd deletes
 //   :Files          fuzzy-pick files with rg · :Gfiles / :Gfiles? use Git
+//   :Rg pattern     search file contents with rg, then jump to a match
 //   :Buffer         pick buffer · :Blines / :Lines pick lines · :Marks pick marks
 //   :History        recent files · :History: commands · :History/ searches
 //   :Command / :Help pick an editor command / README topic
