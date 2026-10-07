@@ -158,19 +158,40 @@ fn handle_keyboard_input(
         }
     }
     if editor.picker_active() {
-        *key_repeat = None;
-        if is_key_pressed(KeyCode::Enter) {
+        let picker_mode = editor.mode;
+        let repeated_key = poll_key_repeat(key_repeat, picker_mode, true, input);
+        let picker_key_pressed = |key| {
+            if repeating_key(key, picker_mode, true, input) {
+                repeated_key == Some(key)
+            } else {
+                input.pressed.contains(&key)
+            }
+        };
+        if picker_key_pressed(KeyCode::Enter)
+            || (ctrl && (picker_key_pressed(KeyCode::J) || picker_key_pressed(KeyCode::M)))
+        {
             editor.accept_picker();
-        } else if is_key_pressed(KeyCode::Backspace) {
+        } else if picker_key_pressed(KeyCode::Backspace) {
             editor.picker_backspace();
-        } else if is_key_pressed(KeyCode::Up) || is_key_pressed(KeyCode::PageUp) {
+        } else if picker_key_pressed(KeyCode::Up) {
             editor.picker_move(-1);
-        } else if is_key_pressed(KeyCode::Down) || is_key_pressed(KeyCode::PageDown) {
+        } else if picker_key_pressed(KeyCode::Down) {
             editor.picker_move(1);
+        } else if picker_key_pressed(KeyCode::PageUp) {
+            editor.picker_move(-10);
+        } else if picker_key_pressed(KeyCode::PageDown) {
+            editor.picker_move(10);
+        } else if ctrl && picker_key_pressed(KeyCode::N) {
+            editor.picker_move(1);
+        } else if ctrl && picker_key_pressed(KeyCode::P) {
+            editor.picker_move(-1);
         } else {
             for ch in chars.into_iter().filter(|ch| !ch.is_control()) {
                 editor.picker_type(ch);
             }
+        }
+        if !editor.picker_active() {
+            *key_repeat = None;
         }
         return;
     }
@@ -178,12 +199,12 @@ fn handle_keyboard_input(
         *key_repeat = None;
         return;
     }
-    let repeated_key = poll_key_repeat(key_repeat, editor.mode, input);
+    let repeated_key = poll_key_repeat(key_repeat, editor.mode, false, input);
     // Every repeatable key uses the same pulse. Physical OS repeat events must
     // not dispatch an additional action between our repeat ticks.
     let repeat_mode = editor.mode;
     let is_key_pressed = |key| {
-        if repeating_key(key, repeat_mode, input) {
+        if repeating_key(key, repeat_mode, false, input) {
             repeated_key == Some(key)
         } else {
             input.pressed.contains(&key)

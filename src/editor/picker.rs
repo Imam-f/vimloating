@@ -98,7 +98,7 @@ impl PickerState {
 
     fn output(&self) -> String {
         let mut output = format!(
-            "{}  {} matches\nFilter: {}  ·  Enter open  ·  Esc close\n",
+            "{}  {} matches\nFilter: {} · Up/Down or Ctrl+N/P move\nEnter/Ctrl+J/M open · Esc close\n",
             self.source.title(),
             self.matches.len(),
             self.query

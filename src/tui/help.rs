@@ -42,6 +42,7 @@ u / Ctrl+R             Undo / redo
 :History / :History:   Recent files / command history
 :History/              Search history
 :Command / :Help       Pick an editor command / README topic
+Pickers: type to filter · arrows/Ctrl+N/P move · Enter/Ctrl+J/M select
 Ctrl+6 / Ctrl+^        Last active buffer (terminal dependent)
 <leader><leader>       Switch to the recent buffer (leader is Space)
 <leader>e              Browse the current file's directory

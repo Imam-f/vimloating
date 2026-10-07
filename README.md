@@ -169,6 +169,8 @@ The default `<leader>` key is `Space`.
 | `:Marks` / `:History` | Pick a marked line or a recently opened file |
 | `:History:` / `:History/` | Pick a command or search history entry |
 | `:Command` / `:Help` | Pick an editor command or README topic |
+
+In pickers, type to filter, use Up/Down or Ctrl+N/P to move, and Enter or Ctrl+J/M to select.
 | `Ctrl+E` / `Ctrl+Y` | Scroll down / up one display line |
 | `Ctrl+D` / `Ctrl+U` | Scroll down / up half a page, then center the view |
 | `Ctrl+F` / `Ctrl+B` | Scroll down / up one page, then center the view |

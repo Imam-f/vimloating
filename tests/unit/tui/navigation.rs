@@ -124,3 +124,45 @@ fn output_scroll_does_not_move_the_buffer_cursor_and_escape_restores_editor() {
     assert_eq!(editor.text(), "keep this");
     assert!(editor.output_view.is_none());
 }
+
+#[test]
+fn terminal_picker_supports_repeated_navigation_ctrl_n_p_and_ctrl_j_m_accept() {
+    let mut buffers =
+        crate::editor::buffers::BufferList::new(Editor::new("alpha\nbeta\ngamma", None));
+    let mut ui = Ui::default();
+    buffers.active_mut().command("Lines");
+    buffers.process_pending();
+
+    press(buffers.active_mut(), &mut ui, KeyCode::Down);
+    handle_key(
+        buffers.active_mut(),
+        &mut ui,
+        KeyEvent::new_with_kind(
+            KeyCode::Down,
+            KeyModifiers::NONE,
+            crossterm::event::KeyEventKind::Repeat,
+        ),
+        8,
+        20,
+    );
+    control(buffers.active_mut(), &mut ui, 'p');
+    control(buffers.active_mut(), &mut ui, 'n');
+    assert!(
+        buffers
+            .active()
+            .output_view
+            .as_deref()
+            .unwrap()
+            .contains(">     3  gamma")
+    );
+    control(buffers.active_mut(), &mut ui, 'j');
+    buffers.process_pending();
+    assert_eq!(buffers.active().cursor.row, 2);
+
+    buffers.active_mut().command("Lines");
+    buffers.process_pending();
+    press(buffers.active_mut(), &mut ui, KeyCode::Down);
+    control(buffers.active_mut(), &mut ui, 'm');
+    buffers.process_pending();
+    assert_eq!(buffers.active().cursor.row, 1);
+}

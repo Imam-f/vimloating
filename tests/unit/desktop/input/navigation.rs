@@ -138,6 +138,67 @@ fn desktop_frames_keep_ctrl_j_k_animation_repeating_while_held() {
 }
 
 #[test]
+fn desktop_picker_repeats_up_down_and_accepts_ctrl_n_p_j_m() {
+    let mut buffers =
+        vimloating::editor::buffers::BufferList::new(Editor::new("alpha\nbeta\ngamma", None));
+    buffers.active_mut().command("Lines");
+    buffers.process_pending();
+    let mut keyboard = KeyboardHarness::new();
+
+    keyboard.frame(
+        buffers.active_mut(),
+        0.0,
+        &[KeyCode::Down],
+        &[KeyCode::Down],
+        "",
+    );
+    keyboard.frame(buffers.active_mut(), 0.35, &[KeyCode::Down], &[], "");
+    keyboard.frame(
+        buffers.active_mut(),
+        0.5,
+        &[KeyCode::LeftControl, KeyCode::P],
+        &[KeyCode::LeftControl, KeyCode::P],
+        "",
+    );
+    keyboard.frame(
+        buffers.active_mut(),
+        0.6,
+        &[KeyCode::LeftControl, KeyCode::N],
+        &[KeyCode::LeftControl, KeyCode::N],
+        "",
+    );
+    assert!(
+        buffers
+            .active()
+            .output_view
+            .as_deref()
+            .unwrap()
+            .contains(">     3  gamma")
+    );
+    keyboard.frame(
+        buffers.active_mut(),
+        0.7,
+        &[KeyCode::LeftControl, KeyCode::J],
+        &[KeyCode::LeftControl, KeyCode::J],
+        "",
+    );
+    buffers.process_pending();
+    assert_eq!(buffers.active().cursor.row, 2);
+
+    buffers.active_mut().command("Lines");
+    buffers.process_pending();
+    keyboard.frame(
+        buffers.active_mut(),
+        0.8,
+        &[KeyCode::LeftControl, KeyCode::M],
+        &[KeyCode::LeftControl, KeyCode::M],
+        "",
+    );
+    buffers.process_pending();
+    assert_eq!(buffers.active().cursor.row, 0);
+}
+
+#[test]
 fn shifted_find_keys_are_preserved_even_when_character_events_are_missing() {
     let mut chars = vec!['f', 'x'];
     promote_shifted_find_key(&mut chars, 'f', 'F', true);

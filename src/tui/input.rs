@@ -73,6 +73,7 @@ pub(super) fn handle_key(
             KeyCode::Backspace => editor.picker_backspace(),
             KeyCode::Up | KeyCode::PageUp => editor.picker_move(-1),
             KeyCode::Down | KeyCode::PageDown => editor.picker_move(1),
+            KeyCode::Char('j' | 'm') if ctrl => editor.accept_picker(),
             KeyCode::Char('n' | 'p') if ctrl => {
                 editor.picker_move(if key.code == KeyCode::Char('n') {
                     1

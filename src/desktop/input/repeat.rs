@@ -11,11 +11,24 @@ pub struct KeyRepeat {
 const KEY_REPEAT_DELAY: f64 = 0.35;
 const KEY_REPEAT_INTERVAL: f64 = 0.06;
 
-pub(super) fn repeating_key(key: KeyCode, mode: Mode, input: &KeyboardInput) -> bool {
-    if matches!(
-        mode,
-        Mode::ShellOutput | Mode::BufferList | Mode::CommandWindow
-    ) {
+pub(super) fn repeating_key(
+    key: KeyCode,
+    mode: Mode,
+    picker_active: bool,
+    input: &KeyboardInput,
+) -> bool {
+    if mode == Mode::BufferList {
+        return picker_active
+            && if input.ctrl() {
+                matches!(key, KeyCode::N | KeyCode::P)
+            } else {
+                matches!(
+                    key,
+                    KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown
+                )
+            };
+    }
+    if matches!(mode, Mode::ShellOutput | Mode::CommandWindow) {
         return false;
     }
     if input.ctrl() {
@@ -102,10 +115,11 @@ pub(super) fn repeat_due(
 pub(super) fn poll_key_repeat(
     state: &mut Option<KeyRepeat>,
     mode: Mode,
+    picker_active: bool,
     input: &KeyboardInput,
 ) -> Option<KeyCode> {
     // A newly pressed key wins when the previous repeat key is still down.
-    let enabled = |key: KeyCode| repeating_key(key, mode, input);
+    let enabled = |key: KeyCode| repeating_key(key, mode, picker_active, input);
     let key = input
         .pressed
         .iter()
