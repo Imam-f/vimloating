@@ -39,6 +39,7 @@ impl Editor {
             visible_folds: Vec::new(),
             command_history: Vec::new(),
             search_history: Vec::new(),
+            picker_state: None,
             history_cursor: None,
             history_draft: String::new(),
             command_window: None,
@@ -168,6 +169,7 @@ impl Editor {
 
     pub fn escape(&mut self) {
         self.command_window = None;
+        self.picker_state = None;
         self.horizontal_scroll_hold = false;
         if !self.replaying_change
             && let Some((entry, actions)) = self.insert_recording.take()

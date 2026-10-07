@@ -17,7 +17,7 @@ pub(super) fn mode_color(mode: Mode, palette: ThemePalette) -> Color {
     }
 }
 
-pub(super) fn mode_name(mode: Mode) -> &'static str {
+pub(super) fn mode_name(mode: Mode, picker_active: bool) -> &'static str {
     match mode {
         Mode::Normal => "NORMAL",
         Mode::Insert => "INSERT",
@@ -26,6 +26,7 @@ pub(super) fn mode_name(mode: Mode) -> &'static str {
         Mode::CommandWindow => "HISTORY",
         Mode::Search => "SEARCH",
         Mode::ShellOutput => "SHELL",
+        Mode::BufferList if picker_active => "PICKER",
         Mode::BufferList => "BUFFERS",
     }
 }

@@ -72,6 +72,32 @@ fn directory_browser_opens_subdirectories_and_files() {
 }
 
 #[test]
+fn leader_e_opens_the_current_file_directory_browser() {
+    let unique = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!("vimfloating-leader-explore-{unique}"));
+    fs::create_dir_all(&root).unwrap();
+    let file = root.join("notes.txt");
+    fs::write(&file, "browse from here").unwrap();
+
+    let mut buffers = crate::editor::buffers::BufferList::new(Editor::open_path(file).unwrap());
+    buffers.active_mut().normal_key(' ');
+    buffers.active_mut().normal_key('e');
+    buffers.process_pending();
+
+    assert!(buffers.active().is_directory_browser());
+    let expected_directory = root.canonicalize().unwrap();
+    assert_eq!(
+        buffers.active().path.as_deref(),
+        Some(expected_directory.as_path())
+    );
+
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn explore_does_not_discard_unsaved_buffer_changes() {
     let mut editor = Editor::new("keep this buffer", None);
     editor.begin_insert('A');

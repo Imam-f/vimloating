@@ -68,6 +68,28 @@ impl Editor {
                 return;
             }
         }
+        if self.pending == Some(' ') {
+            self.pending = None;
+            self.count.clear();
+            match key {
+                ' ' => self.buffer_action = Some(BufferAction::Last),
+                'e' => {
+                    let directory = self
+                        .path
+                        .as_deref()
+                        .map(super::files::containing_directory)
+                        .or_else(|| std::env::current_dir().ok())
+                        .unwrap_or_default();
+                    self.buffer_action = Some(BufferAction::Open {
+                        path: directory,
+                        replace: false,
+                    });
+                    self.message = "Opening directory…".into();
+                }
+                _ => {}
+            }
+            return;
+        }
         if self.pending == Some('r') {
             let n = self.count.parse::<usize>().unwrap_or(1).clamp(1, 10000);
             self.pending = None;
@@ -224,6 +246,11 @@ impl Editor {
             }
             'g' | 'z' | 'm' | '\'' | '`' | 'r' => {
                 self.pending = Some(key);
+                return;
+            }
+            ' ' => {
+                self.count.clear();
+                self.pending = Some(' ');
                 return;
             }
             '<' => self.change_indent(false),

@@ -157,6 +157,23 @@ fn handle_keyboard_input(
             return;
         }
     }
+    if editor.picker_active() {
+        *key_repeat = None;
+        if is_key_pressed(KeyCode::Enter) {
+            editor.accept_picker();
+        } else if is_key_pressed(KeyCode::Backspace) {
+            editor.picker_backspace();
+        } else if is_key_pressed(KeyCode::Up) || is_key_pressed(KeyCode::PageUp) {
+            editor.picker_move(-1);
+        } else if is_key_pressed(KeyCode::Down) || is_key_pressed(KeyCode::PageDown) {
+            editor.picker_move(1);
+        } else {
+            for ch in chars.into_iter().filter(|ch| !ch.is_control()) {
+                editor.picker_type(ch);
+            }
+        }
+        return;
+    }
     if matches!(editor.mode, Mode::ShellOutput | Mode::BufferList) {
         *key_repeat = None;
         return;

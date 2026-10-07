@@ -377,7 +377,7 @@ pub fn draw_buffer(
     } else if editor.mode == Mode::Visual && editor.visual_linewise {
         "VISUAL LINE"
     } else {
-        mode_name(editor.mode)
+        mode_name(editor.mode, editor.picker_active())
     };
     ui_label(
         mode_label,

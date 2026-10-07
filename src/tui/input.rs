@@ -67,6 +67,25 @@ pub(super) fn handle_key(
         ui.last_enter = None;
         return;
     }
+    if editor.picker_active() {
+        match key.code {
+            KeyCode::Enter => editor.accept_picker(),
+            KeyCode::Backspace => editor.picker_backspace(),
+            KeyCode::Up | KeyCode::PageUp => editor.picker_move(-1),
+            KeyCode::Down | KeyCode::PageDown => editor.picker_move(1),
+            KeyCode::Char('n' | 'p') if ctrl => {
+                editor.picker_move(if key.code == KeyCode::Char('n') {
+                    1
+                } else {
+                    -1
+                })
+            }
+            KeyCode::Char(ch) if !ctrl => editor.picker_type(ch),
+            _ => {}
+        }
+        ui.output_top = 0;
+        return;
+    }
     if ui.help || matches!(editor.mode, Mode::ShellOutput | Mode::BufferList) {
         let text = if ui.help {
             HELP

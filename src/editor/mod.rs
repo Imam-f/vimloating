@@ -19,6 +19,9 @@ mod motions;
 mod normal;
 mod operators;
 mod paths;
+mod picker;
+pub(crate) use picker::PickerEntry;
+pub use picker::{PickerPrompt, PickerSource, PickerTarget};
 mod registers;
 mod repeat;
 mod replace;
@@ -55,6 +58,10 @@ pub enum BufferAction {
         path: PathBuf,
         position: Option<Pos>,
     },
+    Help {
+        path: PathBuf,
+        query: String,
+    },
     Next,
     Previous,
     Last,
@@ -64,6 +71,8 @@ pub enum BufferAction {
         target: Option<String>,
         force: bool,
     },
+    StartPicker(PickerSource),
+    PickerSelect(PickerTarget),
 }
 
 struct CompletionCycle {
@@ -184,6 +193,7 @@ pub struct Editor {
     visible_folds: Vec<folds::FoldRange>,
     command_history: Vec<String>,
     search_history: Vec<String>,
+    picker_state: Option<picker::PickerState>,
     history_cursor: Option<usize>,
     history_draft: String,
     pub command_window: Option<Box<Editor>>,

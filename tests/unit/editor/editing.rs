@@ -247,3 +247,42 @@ fn ctrl_backspace_removes_previous_unicode_word_and_spacing() {
     assert_eq!(e.text(), "one ");
     assert_eq!(e.cursor.col, 4);
 }
+
+#[test]
+fn insert_mode_deletions_can_be_pasted_from_the_yank_register() {
+    let mut backspace = Editor::new("one two", None);
+    backspace.cursor.col = 2;
+    backspace.begin_insert('i');
+    backspace.backspace();
+    backspace.escape();
+    assert_eq!(backspace.register, vec![vec!['n']]);
+    backspace.normal_key('p');
+    assert_eq!(backspace.text(), "one two");
+
+    let mut delete = Editor::new("one two", None);
+    delete.cursor.col = 1;
+    delete.begin_insert('i');
+    delete.delete_forward();
+    delete.escape();
+    assert_eq!(delete.register, vec![vec!['n']]);
+    delete.normal_key('p');
+    assert_eq!(delete.text(), "one two");
+
+    let mut delete_word = Editor::new("one two", None);
+    delete_word.cursor.col = 7;
+    delete_word.begin_insert('i');
+    delete_word.delete_prev_word();
+    delete_word.escape();
+    assert_eq!(delete_word.register, vec![vec!['t', 'w', 'o']]);
+    delete_word.normal_key('p');
+    assert_eq!(delete_word.text(), "one two");
+
+    let mut join = Editor::new("one\ntwo", None);
+    join.cursor = Pos { row: 1, col: 0 };
+    join.begin_insert('i');
+    join.backspace();
+    join.escape();
+    assert_eq!(join.register, vec![vec![], vec![]]);
+    join.normal_key('p');
+    assert_eq!(join.text(), "one\ntwo");
+}

@@ -1,6 +1,47 @@
-use super::{BufferAction, Editor, Mode, Pos, files::containing_directory};
+use super::{BufferAction, Editor, Mode, PickerSource, Pos, files::containing_directory};
 use crate::config::Theme;
 use std::path::Path;
+
+pub(super) const COMMAND_NAMES: &[&str] = &[
+    "!",
+    "b",
+    "bd",
+    "bd!",
+    "bdelete",
+    "bdelete!",
+    "bn",
+    "bnext",
+    "bp",
+    "bprevious",
+    "buffer",
+    "buffers",
+    "e",
+    "e!",
+    "Ex",
+    "Explore",
+    "Files",
+    "Gfiles",
+    "Gfiles?",
+    "help",
+    "Help",
+    "History",
+    "History:",
+    "History/",
+    "Buffer",
+    "Blines",
+    "Lines",
+    "Marks",
+    "Command",
+    "ls",
+    "noh",
+    "nohlsearch",
+    "q",
+    "q!",
+    "theme",
+    "w",
+    "wq",
+    "x",
+];
 
 impl Editor {
     pub fn submit_prompt(&mut self) {
@@ -60,6 +101,13 @@ impl Editor {
         }
         if let Some(shell_command) = command.strip_prefix('!') {
             self.run_shell(shell_command.trim());
+            return;
+        }
+        if let Some(id) = command
+            .strip_prefix('b')
+            .filter(|suffix| !suffix.is_empty() && suffix.bytes().all(|byte| byte.is_ascii_digit()))
+        {
+            self.buffer_action = Some(BufferAction::Select(id.to_owned()));
             return;
         }
         let (cmd, arg) = command
@@ -154,8 +202,37 @@ impl Editor {
                 }
             }
             "help" => {
-                self.message = "hjkl · w/b/e · f/F/t/T + char · gf open path[:line:col] · Insert Ctrl+N/P words · Ctrl+X Ctrl+L lines / Ctrl+F paths · . repeat · / ? search · :bn/:bp".into()
+                self.buffer_action = Some(BufferAction::Help {
+                    path: Path::new(env!("CARGO_MANIFEST_DIR")).join("README.md"),
+                    query: arg.to_owned(),
+                });
             }
+            "Files" => self.buffer_action = Some(BufferAction::StartPicker(PickerSource::Files)),
+            "Gfiles" => {
+                self.buffer_action = Some(BufferAction::StartPicker(PickerSource::GitFiles))
+            }
+            "Gfiles?" => {
+                self.buffer_action = Some(BufferAction::StartPicker(PickerSource::ModifiedGitFiles))
+            }
+            "Buffer" => self.buffer_action = Some(BufferAction::StartPicker(PickerSource::Buffers)),
+            "Blines" => {
+                self.buffer_action = Some(BufferAction::StartPicker(PickerSource::BufferLines))
+            }
+            "Lines" => self.buffer_action = Some(BufferAction::StartPicker(PickerSource::Lines)),
+            "Marks" => self.buffer_action = Some(BufferAction::StartPicker(PickerSource::Marks)),
+            "History" => {
+                self.buffer_action = Some(BufferAction::StartPicker(PickerSource::FileHistory))
+            }
+            "History:" => {
+                self.buffer_action = Some(BufferAction::StartPicker(PickerSource::CommandHistory))
+            }
+            "History/" => {
+                self.buffer_action = Some(BufferAction::StartPicker(PickerSource::SearchHistory))
+            }
+            "Command" => {
+                self.buffer_action = Some(BufferAction::StartPicker(PickerSource::Commands))
+            }
+            "Help" => self.buffer_action = Some(BufferAction::StartPicker(PickerSource::Help)),
             "noh" | "nohlsearch" => self.search.clear(),
             _ => {
                 if let Ok(line) = command.parse::<usize>() {
@@ -167,7 +244,10 @@ impl Editor {
                     let row = line.saturating_sub(1).min(self.lines.len() - 1);
                     self.cursor = Pos {
                         row,
-                        col: self.lines[row].iter().position(|ch| !ch.is_whitespace()).unwrap_or(0),
+                        col: self.lines[row]
+                            .iter()
+                            .position(|ch| !ch.is_whitespace())
+                            .unwrap_or(0),
                     };
                     self.clamp();
                 } else {
@@ -182,32 +262,8 @@ fn command_completions(prefix: &str) -> Vec<String> {
     if prefix.is_empty() {
         return Vec::new();
     }
-    let commands = [
-        "!",
-        "b",
-        "bd",
-        "bdelete",
-        "bn",
-        "bp",
-        "buffer",
-        "buffers",
-        "e",
-        "e!",
-        "Ex",
-        "Explore",
-        "help",
-        "ls",
-        "noh",
-        "nohlsearch",
-        "q",
-        "q!",
-        "theme",
-        "w",
-        "wq",
-        "x",
-    ];
     let Some(command_end) = prefix.find(char::is_whitespace) else {
-        let mut matches: Vec<_> = commands
+        let mut matches: Vec<_> = COMMAND_NAMES
             .iter()
             .filter(|command| {
                 command
@@ -216,6 +272,20 @@ fn command_completions(prefix: &str) -> Vec<String> {
             })
             .map(|command| (*command).to_owned())
             .collect();
+        if matches.iter().any(|candidate| candidate == prefix) {
+            return matches
+                .into_iter()
+                .filter(|candidate| candidate == prefix)
+                .collect();
+        }
+        let case_matches: Vec<_> = matches
+            .iter()
+            .filter(|candidate| candidate.starts_with(prefix))
+            .cloned()
+            .collect();
+        if !case_matches.is_empty() {
+            matches = case_matches;
+        }
         if let Some(exact) = matches
             .iter()
             .find(|candidate| candidate.eq_ignore_ascii_case(prefix))

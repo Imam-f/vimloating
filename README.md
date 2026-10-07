@@ -104,6 +104,7 @@ In 3D mode, moving the cursor within 24 pixels of a viewport edge or beyond it m
 ## Vim controls
 
 Start in **Normal** mode. `Esc` returns to Normal from any mode.
+The default `<leader>` key is `Space`.
 
 | Input | Action |
 | --- | --- |
@@ -161,6 +162,13 @@ Start in **Normal** mode. `Esc` returns to Normal from any mode.
 | `n` / `N` | Repeat in the last search direction / opposite direction |
 | `*` / `#` | Search forward / backward for the complete word under or after the cursor; counts and n/N repeat with wraparound |
 | `Ctrl+6` | Toggle to the last active buffer |
+| `<leader><leader>` | Toggle to the last active buffer |
+| `<leader>e` | Browse the current file's directory (or the working directory) |
+| `:Files` / `:Gfiles` / `:Gfiles?` | Fuzzy-pick files from `rg --files`, Git, or Git status |
+| `:Buffer` / `:Blines` / `:Lines` | Pick a buffer, a line from any buffer, or a line in the active buffer |
+| `:Marks` / `:History` | Pick a marked line or a recently opened file |
+| `:History:` / `:History/` | Pick a command or search history entry |
+| `:Command` / `:Help` | Pick an editor command or README topic |
 | `Ctrl+E` / `Ctrl+Y` | Scroll down / up one display line |
 | `Ctrl+D` / `Ctrl+U` | Scroll down / up half a page, then center the view |
 | `Ctrl+F` / `Ctrl+B` | Scroll down / up one page, then center the view |
@@ -259,6 +267,7 @@ General:
   - Copy/Cut/Paste
   - Move between lines
 - Tab and window navigation
+- FZF features
 
 Code editor:
 - More Vim options

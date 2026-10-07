@@ -35,7 +35,16 @@ u / Ctrl+R             Undo / redo
 :w [path] · Ctrl+S     Save
 :e path · :Explore     Open file / directory browser
 :ls · :b id · :bn :bp  List / switch buffers
+:Files / :Gfiles       Fuzzy-pick files (rg / Git)
+:Gfiles?               Pick files listed by Git status
+:Buffer / :Blines      Pick a buffer / line from any buffer
+:Lines / :Marks        Pick active-buffer lines / marked lines
+:History / :History:   Recent files / command history
+:History/              Search history
+:Command / :Help       Pick an editor command / README topic
 Ctrl+6 / Ctrl+^        Last active buffer (terminal dependent)
+<leader><leader>       Switch to the recent buffer (leader is Space)
+<leader>e              Browse the current file's directory
 :!command · :.!command Shell output / filter current line
 :q / :q! / :wq         Quit / discard / save and quit
 Enter Enter            Toggle word wrap in Normal mode

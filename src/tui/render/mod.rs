@@ -237,6 +237,7 @@ pub(super) fn draw(frame: &mut Frame, editor: &Editor, ui: &Ui) {
             Mode::CommandWindow => "HISTORY",
             Mode::Search => "SEARCH",
             Mode::ShellOutput => "OUTPUT",
+            Mode::BufferList if editor.picker_active() => "PICKER",
             Mode::BufferList => "BUFFERS",
         };
         let status = format!(

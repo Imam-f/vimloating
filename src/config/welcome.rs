@@ -30,7 +30,12 @@ fn main() {
 //   :.!pwd         replace the current line with command output
 //   :theme everforest / solarized-blue  change the colors
 //   :ls             list buffers · :b 2 switches · :bn / :bp cycles · :bd deletes
+//   :Files          fuzzy-pick files with rg · :Gfiles / :Gfiles? use Git
+//   :Buffer         pick buffer · :Blines / :Lines pick lines · :Marks pick marks
+//   :History        recent files · :History: commands · :History/ searches
+//   :Command / :Help pick an editor command / README topic
 //   Ctrl+6          switch to the last active buffer
+//   <leader><leader> switch to the recent buffer · <leader>e browse files (leader: Space)
 //   gf / gF         open the path[:line[:column]] under the cursor
 //   Ctrl+X Ctrl+F   complete a file path in Insert mode; Ctrl+N / P cycle
 //   Ctrl+N / P      complete words in Insert mode; Ctrl+X Ctrl+L completes lines

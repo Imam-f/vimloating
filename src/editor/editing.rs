@@ -164,9 +164,12 @@ impl Editor {
         self.record_insert_action(InsertAction::Backspace);
         self.touch();
         if self.cursor.col > 0 {
+            let deleted = self.lines[self.cursor.row][self.cursor.col - 1];
+            self.remember_deleted_text(vec![vec![deleted]]);
             self.cursor.col -= 1;
             self.lines[self.cursor.row].remove(self.cursor.col);
         } else if self.cursor.row > 0 {
+            self.remember_deleted_text(vec![Vec::new(), Vec::new()]);
             let line = self.lines.remove(self.cursor.row);
             self.cursor.row -= 1;
             self.cursor.col = self.lines[self.cursor.row].len();
@@ -207,20 +210,19 @@ impl Editor {
         if col == 0 {
             return;
         }
-        let line = &mut self.lines[row];
         let mut start = col;
-        while start > 0 && line[start - 1].is_whitespace() {
+        while start > 0 && self.lines[row][start - 1].is_whitespace() {
             start -= 1;
         }
         if start > 0 {
-            let previous = line[start - 1];
+            let previous = self.lines[row][start - 1];
             let word_class = if previous.is_alphanumeric() || previous == '_' {
                 1
             } else {
                 2
             };
             while start > 0 {
-                let ch = line[start - 1];
+                let ch = self.lines[row][start - 1];
                 let class = if ch.is_whitespace() {
                     0
                 } else if ch.is_alphanumeric() || ch == '_' {
@@ -234,7 +236,9 @@ impl Editor {
                 start -= 1;
             }
         }
-        line.drain(start..col);
+        let deleted = self.lines[row][start..col].to_vec();
+        self.lines[row].drain(start..col);
+        self.remember_deleted_text(vec![deleted]);
         self.cursor.col = start;
     }
 
@@ -244,8 +248,10 @@ impl Editor {
         self.touch();
         let row = self.cursor.row;
         if self.cursor.col < self.lines[row].len() {
-            self.lines[row].remove(self.cursor.col);
+            let deleted = self.lines[row].remove(self.cursor.col);
+            self.remember_deleted_text(vec![vec![deleted]]);
         } else if row + 1 < self.lines.len() {
+            self.remember_deleted_text(vec![Vec::new(), Vec::new()]);
             let next = self.lines.remove(row + 1);
             self.lines[row].extend(next);
         }

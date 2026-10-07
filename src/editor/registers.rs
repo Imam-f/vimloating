@@ -1,6 +1,12 @@
 use super::{Editor, Pos, RepeatChange};
 
 impl Editor {
+    pub(super) fn remember_deleted_text(&mut self, contents: Vec<Vec<char>>) {
+        self.register = contents;
+        self.linewise = false;
+        self.register_block_width = None;
+    }
+
     pub(super) fn visual_action(&mut self, delete: bool) {
         self.touch();
         let (a, b) = self.selection();
