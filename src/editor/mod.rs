@@ -64,6 +64,7 @@ pub enum BufferAction {
         target: Option<String>,
         force: bool,
     },
+    SourceConfig,
 }
 
 struct CompletionCycle {
@@ -171,6 +172,8 @@ pub struct Editor {
     pub char_find_hints: Vec<Pos>,
     pub output_view: Option<String>,
     pub theme: Theme,
+    pub number: bool,
+    pub relative_number: bool,
     pub buffer_action: Option<BufferAction>,
     pub top: usize,
     pub left: usize,

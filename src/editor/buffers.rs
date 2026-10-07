@@ -43,7 +43,7 @@ impl BufferList {
         }
     }
 
-    pub fn process_pending(&mut self) {
+    pub fn process_pending(&mut self) -> Option<crate::config::UserConfig> {
         let action = self.active_mut().buffer_action.take();
         match action {
             Some(BufferAction::Open { path, replace }) => self.open(path, replace),
@@ -67,8 +67,18 @@ impl BufferList {
             Some(BufferAction::Select(query)) => self.select(&query),
             Some(BufferAction::List) => self.show_list(),
             Some(BufferAction::Delete { target, force }) => self.delete(target.as_deref(), force),
+            Some(BufferAction::SourceConfig) => {
+                let config = crate::config::load_user_config();
+                let theme = config.theme.unwrap_or_default();
+                for slot in &mut self.slots {
+                    slot.editor.theme = theme;
+                }
+                self.active_mut().message = "Configuration reloaded".into();
+                return Some(config);
+            }
             None => {}
         }
+        None
     }
 
     fn open(&mut self, path: PathBuf, replace: bool) {

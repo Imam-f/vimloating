@@ -7,7 +7,7 @@ pub use macroquad::prelude::Color;
 #[cfg(feature = "graphics")]
 use macroquad::prelude::Conf;
 pub use theme::{Theme, ThemePalette};
-pub use user::{UserConfig, load_user_config};
+pub use user::{UserConfig, load_user_config, user_config_path};
 pub use welcome::WELCOME;
 
 /// RGBA theme color for builds without the graphics backend.

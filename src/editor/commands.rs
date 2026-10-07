@@ -153,6 +153,33 @@ impl Editor {
                     );
                 }
             }
+            "set" => {
+                if arg.is_empty() {
+                    self.message = format!(
+                        "number {} · relativenumber {}",
+                        if self.number { "on" } else { "off" },
+                        if self.relative_number { "on" } else { "off" }
+                    );
+                } else {
+                    for option in arg.split_whitespace() {
+                        match option {
+                            "rel" | "relativenumber" => self.relative_number = true,
+                            "norel" | "norelativenumber" => self.relative_number = false,
+                            "num" | "number" => self.number = true,
+                            "nonum" | "nonumber" => self.number = false,
+                            _ => {
+                                self.message = format!("Unknown option: {option}");
+                                return;
+                            }
+                        }
+                    }
+                    self.message = format!(
+                        "number {} · relativenumber {}",
+                        if self.number { "on" } else { "off" },
+                        if self.relative_number { "on" } else { "off" }
+                    );
+                }
+            }
             "help" => {
                 self.message = "hjkl · w/b/e · f/F/t/T + char · gf open path[:line:col] · Insert Ctrl+N/P words · Ctrl+X Ctrl+L lines / Ctrl+F paths · . repeat · / ? search · :bn/:bp".into()
             }
@@ -201,6 +228,7 @@ fn command_completions(prefix: &str) -> Vec<String> {
         "nohlsearch",
         "q",
         "q!",
+        "set",
         "theme",
         "w",
         "wq",
@@ -229,7 +257,7 @@ fn command_completions(prefix: &str) -> Vec<String> {
     };
 
     let command = &prefix[..command_end];
-    if !matches!(command, "e" | "e!" | "w" | "wq" | "x" | "Ex" | "Explore") {
+    if command == "set" || !matches!(command, "e" | "e!" | "w" | "wq" | "x" | "Ex" | "Explore") {
         return Vec::new();
     }
     let rest = &prefix[command_end..];

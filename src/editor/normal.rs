@@ -11,6 +11,39 @@ impl Editor {
         self.char_find_highlight = None;
         self.char_find_hints.clear();
         self.search_task = None;
+        if self.pending == Some(' ') {
+            self.pending = None;
+            self.count.clear();
+            match key {
+                'v' => {
+                    self.mode = Mode::Visual;
+                    self.visual_linewise = true;
+                    self.visual_blockwise = false;
+                    self.anchor = Pos { row: 0, col: 0 };
+                    self.cursor = Pos {
+                        row: self.lines.len() - 1,
+                        col: self
+                            .lines
+                            .last()
+                            .map_or(0, |line| line.len().saturating_sub(1)),
+                    };
+                    self.clamp();
+                }
+                'c' => self.buffer_action = Some(BufferAction::SourceConfig),
+                'C' => {
+                    if let Some(path) = crate::config::user_config_path() {
+                        self.buffer_action = Some(BufferAction::Open {
+                            path,
+                            replace: false,
+                        });
+                    } else {
+                        self.message = "Cannot locate user config · set HOME".into();
+                    }
+                }
+                _ => {}
+            }
+            return;
+        }
         if let Some(command @ ('m' | '\'' | '`')) = self.pending {
             self.pending = None;
             self.count.clear();
@@ -222,7 +255,7 @@ impl Editor {
                 self.count.clear();
                 return;
             }
-            'g' | 'z' | 'm' | '\'' | '`' | 'r' => {
+            'g' | 'z' | 'm' | '\'' | '`' | 'r' | ' ' => {
                 self.pending = Some(key);
                 return;
             }

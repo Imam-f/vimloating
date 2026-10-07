@@ -53,7 +53,7 @@ pub fn run(editor: Editor) -> io::Result<()> {
     let mut last_activity = Instant::now();
     let mut redraw = true;
     loop {
-        buffers.process_pending();
+        let _ = buffers.process_pending();
         buffers.protect_quit();
         if buffers.active().quit {
             break;

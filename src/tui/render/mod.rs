@@ -106,9 +106,17 @@ pub(super) fn draw(frame: &mut Frame, editor: &Editor, ui: &Ui) {
             };
             let current = row == editor.cursor.row;
             let number = if segment == 0 {
-                format!("{:>width$} ", row + 1, width = gutter.saturating_sub(1))
+                editor.line_number(row).map_or_else(
+                    || format!("{:>width$} ", "", width = gutter.saturating_sub(1)),
+                    |number| format!("{:>width$} ", number, width = gutter.saturating_sub(1)),
+                )
             } else {
-                format!("{:>width$} ", ">", width = gutter.saturating_sub(1))
+                let marker = if editor.number || editor.relative_number {
+                    ">"
+                } else {
+                    ""
+                };
+                format!("{:>width$} ", marker, width = gutter.saturating_sub(1))
             };
             let mut spans = vec![Span::styled(
                 number.chars().take(gutter).collect::<String>(),
