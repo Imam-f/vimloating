@@ -87,7 +87,7 @@ pub(super) fn handle_key(
         ui.output_top = 0;
         return;
     }
-    if ui.help || matches!(editor.mode, Mode::ShellOutput | Mode::BufferList) {
+    if ui.help || editor.mode == Mode::ShellOutput {
         let text = if ui.help {
             HELP
         } else {
@@ -101,6 +101,48 @@ pub(super) fn handle_key(
             KeyCode::PageUp => ui.output_top = ui.output_top.saturating_sub(rows),
             KeyCode::Home => ui.output_top = 0,
             KeyCode::End => ui.output_top = max,
+            _ => {}
+        }
+        return;
+    }
+    if editor.mode == Mode::BufferList {
+        if key.code == KeyCode::Char(':') {
+            editor.mode = Mode::Command;
+            editor.prompt.clear();
+            return;
+        }
+        let line_count = editor
+            .output_view
+            .as_deref()
+            .map_or(0, |output| output.lines().count());
+        let visible_rows = rows.max(1);
+        let max_top = line_count.saturating_sub(visible_rows);
+        let page = (visible_rows / 2).max(1);
+        match key.code {
+            KeyCode::Char('d') if ctrl => {
+                editor.output_top = (editor.output_top + page).min(max_top)
+            }
+            KeyCode::Char('u') if ctrl => {
+                editor.output_top = editor.output_top.saturating_sub(page)
+            }
+            KeyCode::Char('n') if ctrl => {
+                editor.output_top = (editor.output_top + page).min(max_top)
+            }
+            KeyCode::Char('p') if ctrl => {
+                editor.output_top = editor.output_top.saturating_sub(page)
+            }
+            KeyCode::Char('j') | KeyCode::Down => {
+                editor.output_top = (editor.output_top + 1).min(max_top)
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                editor.output_top = editor.output_top.saturating_sub(1)
+            }
+            KeyCode::PageDown => {
+                editor.output_top = (editor.output_top + visible_rows).min(max_top)
+            }
+            KeyCode::PageUp => editor.output_top = editor.output_top.saturating_sub(visible_rows),
+            KeyCode::Home => editor.output_top = 0,
+            KeyCode::End => editor.output_top = max_top,
             _ => {}
         }
         return;

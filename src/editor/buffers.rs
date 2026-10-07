@@ -470,19 +470,17 @@ impl BufferList {
     }
 
     fn show_list(&mut self) {
-        let mut output = String::from("Buffers · % active · + modified\n\n");
+        let mut output = String::from("Buffers · % active · + modified · Ctrl+U/D scroll");
         for (index, slot) in self.slots.iter().enumerate() {
             let active = if index == self.active { '%' } else { ' ' };
             let modified = if slot.editor.dirty() { '+' } else { ' ' };
             output.push_str(&format!(
-                "{active}{modified} {:>3}  {}\n",
+                "\n{active}{modified} {:>3}  {}",
                 slot.id,
                 slot.editor.name()
             ));
         }
-        output.push_str(
-            "\n:b {id|name}  switch    :bn/:bp  next/previous\nCtrl+6  last active    :bd  delete current buffer",
-        );
+        output.push_str("\n:b {id|name} switch · :bn/:bp next/previous · Ctrl+6 last · :bd delete");
         self.active_mut().show_buffer_list(output);
     }
 

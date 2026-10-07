@@ -181,6 +181,8 @@ pub struct Editor {
     pub char_find_highlight: Option<Pos>,
     pub char_find_hints: Vec<Pos>,
     pub output_view: Option<String>,
+    pub output_top: usize,
+    pub buffer_list_visible: bool,
     pub theme: Theme,
     pub number: bool,
     pub relative_number: bool,

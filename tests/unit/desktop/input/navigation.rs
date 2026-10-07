@@ -115,6 +115,62 @@ fn desktop_frames_repeat_ctrl_scrolling_and_font_shortcuts() {
 }
 
 #[test]
+fn desktop_buffer_list_scrolls_with_ctrl_u_and_ctrl_d() {
+    let mut editor = Editor::new("keep this", None);
+    editor.mode = Mode::BufferList;
+    editor.output_view = Some((0..100).map(|n| format!("buffer {n}\n")).collect());
+    let mut keyboard = KeyboardHarness::new();
+    let rows = text_grid(keyboard.font_size).0;
+    let page = (rows / 2).max(1);
+
+    keyboard.frame(
+        &mut editor,
+        0.0,
+        &[KeyCode::LeftControl, KeyCode::D],
+        &[KeyCode::D],
+        "",
+    );
+    assert_eq!(editor.output_top, page);
+    keyboard.frame(
+        &mut editor,
+        0.1,
+        &[KeyCode::LeftControl, KeyCode::U],
+        &[KeyCode::U],
+        "",
+    );
+    assert_eq!(editor.output_top, 0);
+    keyboard.frame(
+        &mut editor,
+        0.2,
+        &[KeyCode::LeftControl, KeyCode::N],
+        &[KeyCode::N],
+        "",
+    );
+    assert_eq!(editor.output_top, page);
+    keyboard.frame(
+        &mut editor,
+        0.3,
+        &[KeyCode::LeftControl, KeyCode::P],
+        &[KeyCode::P],
+        "",
+    );
+    assert_eq!(editor.output_top, 0);
+    assert_eq!(editor.cursor, vimloating::editor::Pos::default());
+}
+
+#[test]
+fn desktop_buffer_list_can_open_command_mode_without_hiding_the_panel() {
+    let mut editor = Editor::new("keep this", None);
+    editor.show_buffer_list("Buffers\n%   1  current".into());
+    let mut keyboard = KeyboardHarness::new();
+
+    keyboard.frame(&mut editor, 0.0, &[], &[], ":");
+    assert_eq!(editor.mode, Mode::Command);
+    assert!(editor.buffer_list_visible);
+    assert!(editor.output_view.is_some());
+}
+
+#[test]
 fn desktop_frames_keep_ctrl_j_k_animation_repeating_while_held() {
     let text = std::iter::repeat_n("line", 100)
         .collect::<Vec<_>>()

@@ -197,6 +197,25 @@ fn handle_keyboard_input(
     }
     if matches!(editor.mode, Mode::ShellOutput | Mode::BufferList) {
         *key_repeat = None;
+        if editor.mode == Mode::BufferList && chars.contains(&':') {
+            editor.mode = Mode::Command;
+            editor.prompt.clear();
+            return;
+        }
+        if editor.mode == Mode::BufferList && ctrl {
+            let output_rows = editor
+                .output_view
+                .as_deref()
+                .map_or(0, |output| output.lines().count());
+            let (rows, _, _, _) = text_grid(*font_size);
+            let max_top = output_rows.saturating_sub(rows);
+            let page = (rows / 2).max(1);
+            if input.pressed.contains(&KeyCode::D) || input.pressed.contains(&KeyCode::N) {
+                editor.output_top = (editor.output_top + page).min(max_top);
+            } else if input.pressed.contains(&KeyCode::U) || input.pressed.contains(&KeyCode::P) {
+                editor.output_top = editor.output_top.saturating_sub(page);
+            }
+        }
         return;
     }
     let repeated_key = poll_key_repeat(key_repeat, editor.mode, false, input);
