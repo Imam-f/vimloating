@@ -50,7 +50,8 @@ Ctrl+6 / Ctrl+^        Last active buffer (terminal dependent)
 :!command · :.!command Shell output / filter current line
 :q / :q! / :wq         Quit / discard / save and quit
 Space v / c / C        Select all lines / reload / open config
-:set rel / num / nonum Relative numbers / show / hide line numbers
+:set rel / rel! / norel Relative numbers / toggle / disable relative numbers
+:set num / num! / nonum Show / toggle / hide line numbers
 Enter Enter            Toggle word wrap in Normal mode
 Ctrl+E / Y             Scroll one display line
 Ctrl+D / U · F / B     Half-page / full-page movement

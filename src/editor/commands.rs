@@ -214,8 +214,12 @@ impl Editor {
                     for option in arg.split_whitespace() {
                         match option {
                             "rel" | "relativenumber" => self.relative_number = true,
+                            "rel!" | "relativenumber!" => {
+                                self.relative_number = !self.relative_number
+                            }
                             "norel" | "norelativenumber" => self.relative_number = false,
                             "num" | "number" => self.number = true,
+                            "num!" | "number!" => self.number = !self.number,
                             "nonum" | "nonumber" => self.number = false,
                             _ => {
                                 self.message = format!("Unknown option: {option}");

@@ -102,6 +102,21 @@ fn set_command_controls_absolute_and_relative_line_numbers() {
     assert_eq!(editor.line_number(0), None);
     editor.command("set num");
     assert_eq!(editor.line_number(1), Some(2));
+
+    editor.command("set rel!");
+    assert!(editor.relative_number);
+    editor.command("set rel!");
+    assert!(!editor.relative_number);
+    editor.command("set rel!");
+    editor.command("set norel");
+    assert!(!editor.relative_number);
+
+    editor.command("set num!");
+    assert!(!editor.number);
+    assert_eq!(editor.line_number(1), None);
+    editor.command("set num!");
+    assert!(editor.number);
+    assert_eq!(editor.line_number(1), Some(2));
 }
 
 #[test]

@@ -227,8 +227,8 @@ Space is the leader key: `Space v` selects every line, `Space c` reloads `~/.vim
 | `:theme everforest` | Switch to the Everforest dark palette |
 | `:theme solarized-blue` | Switch to the blue Solarized Dark palette |
 | `:theme default` | Restore the Vimfloating palette |
-| `:set rel` | Show relative line numbers (the cursor line stays absolute when `number` is on) |
-| `:set num` / `:set nonum` | Show / hide line numbers; combine with `:set rel` for relative numbering |
+| `:set rel` / `:set norel` / `:set rel!` | Enable / disable / toggle relative line numbers (the cursor line stays absolute when `number` is on) |
+| `:set num` / `:set nonum` / `:set num!` | Show / hide / toggle line numbers; combine with `:set rel` for relative numbering |
 | `:ls` / `:buffers` / `:b` / `:buffer` | Show the buffer list; press Esc to return |
 | `:b {id or name}` / `:buffer {id or name}` | Switch to a buffer by its list ID, filename, or unique filename prefix |
 | `:bn` / `:bp` / `:bnext` / `:bprevious` | Switch to the next / previous buffer; modified buffers stay open in memory |
