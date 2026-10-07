@@ -212,6 +212,8 @@ Matches highlight as you type; Enter jumps to the next match in the chosen direc
 
 Type `:`, enter a command, and press Enter. Press Tab to complete command names or file paths for `:e`, `:e!`, `:w`, `:wq`, `:x`, `:Ex`, and `:Explore`; repeated Tab cycles through matches. Command paths are relative to the working directory and support `~/`. Paths can contain spaces; enter them directly without quotes.
 
+Space is the leader key: `Space v` selects every line, `Space c` reloads `~/.vimfloating`, and `Space C` opens that config file.
+
 | Command | Action |
 | --- | --- |
 | `:120` | Jump to the first nonblank on line 120, revealing folds; numbers beyond the file end land on its last line |
@@ -225,6 +227,8 @@ Type `:`, enter a command, and press Enter. Press Tab to complete command names 
 | `:theme everforest` | Switch to the Everforest dark palette |
 | `:theme solarized-blue` | Switch to the blue Solarized Dark palette |
 | `:theme default` | Restore the Vimfloating palette |
+| `:set rel` | Show relative line numbers (the cursor line stays absolute when `number` is on) |
+| `:set num` / `:set nonum` | Show / hide line numbers; combine with `:set rel` for relative numbering |
 | `:ls` / `:buffers` / `:b` / `:buffer` | Show the buffer list; press Esc to return |
 | `:b {id or name}` / `:buffer {id or name}` | Switch to a buffer by its list ID, filename, or unique filename prefix |
 | `:bn` / `:bp` / `:bnext` / `:bprevious` | Switch to the next / previous buffer; modified buffers stay open in memory |
@@ -252,7 +256,6 @@ General:
 - [ ] Add `gi`.
 - [ ] Add `Ctrl+I`.
 - [ ] Add `Ctrl+O`.
-- Use leader and localleader key for something
 - Add vim submode
 - Selection based command mode
   - Find

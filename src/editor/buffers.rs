@@ -55,7 +55,7 @@ impl BufferList {
         }
     }
 
-    pub fn process_pending(&mut self) {
+    pub fn process_pending(&mut self) -> Option<crate::config::UserConfig> {
         let action = self.active_mut().buffer_action.take();
         match action {
             Some(BufferAction::Open { path, replace }) => self.open(path, replace),
@@ -91,8 +91,18 @@ impl BufferList {
             Some(BufferAction::StartPicker(source)) => self.start_picker(source),
             Some(BufferAction::StartRgPicker(query)) => self.active_mut().start_rg_picker(query),
             Some(BufferAction::PickerSelect(target)) => self.select_picker(target),
+            Some(BufferAction::SourceConfig) => {
+                let config = crate::config::load_user_config();
+                let theme = config.theme.unwrap_or_default();
+                for slot in &mut self.slots {
+                    slot.editor.theme = theme;
+                }
+                self.active_mut().message = "Configuration reloaded".into();
+                return Some(config);
+            }
             None => {}
         }
+        None
     }
 
     fn start_picker(&mut self, source: PickerSource) {

@@ -37,6 +37,7 @@ pub(super) const COMMAND_NAMES: &[&str] = &[
     "nohlsearch",
     "q",
     "q!",
+    "set",
     "Rg",
     "theme",
     "w",
@@ -202,6 +203,33 @@ impl Editor {
                     );
                 }
             }
+            "set" => {
+                if arg.is_empty() {
+                    self.message = format!(
+                        "number {} · relativenumber {}",
+                        if self.number { "on" } else { "off" },
+                        if self.relative_number { "on" } else { "off" }
+                    );
+                } else {
+                    for option in arg.split_whitespace() {
+                        match option {
+                            "rel" | "relativenumber" => self.relative_number = true,
+                            "norel" | "norelativenumber" => self.relative_number = false,
+                            "num" | "number" => self.number = true,
+                            "nonum" | "nonumber" => self.number = false,
+                            _ => {
+                                self.message = format!("Unknown option: {option}");
+                                return;
+                            }
+                        }
+                    }
+                    self.message = format!(
+                        "number {} · relativenumber {}",
+                        if self.number { "on" } else { "off" },
+                        if self.relative_number { "on" } else { "off" }
+                    );
+                }
+            }
             "help" => {
                 self.buffer_action = Some(BufferAction::Help {
                     path: Path::new(env!("CARGO_MANIFEST_DIR")).join("README.md"),
@@ -301,7 +329,7 @@ fn command_completions(prefix: &str) -> Vec<String> {
     };
 
     let command = &prefix[..command_end];
-    if !matches!(command, "e" | "e!" | "w" | "wq" | "x" | "Ex" | "Explore") {
+    if command == "set" || !matches!(command, "e" | "e!" | "w" | "wq" | "x" | "Ex" | "Explore") {
         return Vec::new();
     }
     let rest = &prefix[command_end..];

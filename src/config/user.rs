@@ -6,12 +6,17 @@ pub struct UserConfig {
     pub two_d_only: Option<bool>,
 }
 
+pub fn user_config_path() -> Option<std::path::PathBuf> {
+    std::env::var_os("USERPROFILE")
+        .or_else(|| std::env::var_os("HOME"))
+        .map(|home| std::path::PathBuf::from(home).join(".vimfloating"))
+}
+
 pub fn load_user_config() -> UserConfig {
-    let Some(home) = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")) else {
+    let Some(path) = user_config_path() else {
         return UserConfig::default();
     };
-    let Ok(contents) = std::fs::read_to_string(std::path::PathBuf::from(home).join(".vimfloating"))
-    else {
+    let Ok(contents) = std::fs::read_to_string(path) else {
         return UserConfig::default();
     };
     parse_user_config(&contents)

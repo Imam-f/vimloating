@@ -82,6 +82,57 @@ fn theme_command_switches_palettes_and_accepts_aliases() {
 }
 
 #[test]
+fn set_command_controls_absolute_and_relative_line_numbers() {
+    let mut editor = Editor::new("one\ntwo\nthree", None);
+    editor.cursor.row = 1;
+    assert_eq!(editor.line_number(0), Some(1));
+    assert_eq!(editor.line_number(1), Some(2));
+
+    editor.command("set rel");
+    assert_eq!(editor.line_number(0), Some(1));
+    assert_eq!(editor.line_number(1), Some(2));
+    assert_eq!(editor.line_number(2), Some(1));
+
+    editor.command("set nonum");
+    assert_eq!(editor.line_number(0), Some(1));
+    assert_eq!(editor.line_number(1), Some(0));
+    assert_eq!(editor.line_number(2), Some(1));
+
+    editor.command("set norel");
+    assert_eq!(editor.line_number(0), None);
+    editor.command("set num");
+    assert_eq!(editor.line_number(1), Some(2));
+}
+
+#[test]
+fn leader_v_selects_all_lines_and_config_mappings_dispatch_actions() {
+    let mut editor = Editor::new("one\ntwo\nthree", None);
+    editor.cursor.row = 1;
+    editor.normal_key(' ');
+    editor.normal_key('v');
+    assert_eq!(editor.mode, Mode::Visual);
+    assert!(editor.visual_linewise);
+    assert_eq!(editor.selection().0.row, 0);
+    assert_eq!(editor.selection().1.row, 2);
+
+    editor.escape();
+    editor.normal_key(' ');
+    editor.normal_key('c');
+    assert!(matches!(
+        editor.buffer_action,
+        Some(BufferAction::SourceConfig)
+    ));
+
+    editor.buffer_action = None;
+    editor.normal_key(' ');
+    editor.normal_key('C');
+    assert!(matches!(
+        editor.buffer_action,
+        Some(BufferAction::Open { .. })
+    ));
+}
+
+#[test]
 fn command_tab_completion_cycles_matching_commands() {
     let mut editor = Editor::new("", None);
     editor.mode = Mode::Command;

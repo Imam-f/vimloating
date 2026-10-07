@@ -126,9 +126,15 @@ pub fn draw_buffer(
             );
         }
         let num = if segment_start == 0 {
-            format!("{:>4}", row + 1)
+            editor
+                .line_number(row)
+                .map_or_else(|| "    ".into(), |number| format!("{number:>4}"))
         } else {
-            "   >".into()
+            if editor.number || editor.relative_number {
+                "   >".into()
+            } else {
+                "    ".into()
+            }
         };
         if editor.yank_blink_line(row) {
             ui_rectangle(

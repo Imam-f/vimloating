@@ -72,7 +72,9 @@ async fn run_editor(mut editor: Editor, screenshot: Option<PathBuf>) {
     prevent_quit();
 
     loop {
-        buffers.process_pending();
+        if let Some(config) = buffers.process_pending() {
+            view.two_d_only = config.two_d_only.unwrap_or(true);
+        }
         let editor = buffers.active_mut();
         let (target_width, target_height) = render::editor_target_dimensions();
         if target.texture.width() != target_width as f32

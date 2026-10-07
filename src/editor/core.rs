@@ -26,6 +26,8 @@ impl Editor {
             char_find_hints: Vec::new(),
             output_view: None,
             theme: Theme::default(),
+            number: true,
+            relative_number: false,
             buffer_action: None,
             top: 0,
             left: 0,
@@ -93,6 +95,21 @@ impl Editor {
             .map(|line| line.iter().collect::<String>())
             .collect::<Vec<_>>()
             .join("\n")
+    }
+
+    /// Returns the gutter number for a source line, if line numbers are enabled.
+    pub fn line_number(&self, row: usize) -> Option<usize> {
+        if self.relative_number {
+            if row == self.cursor.row && self.number {
+                Some(row + 1)
+            } else {
+                Some(row.abs_diff(self.cursor.row))
+            }
+        } else if self.number {
+            Some(row + 1)
+        } else {
+            None
+        }
     }
 
     pub fn dirty(&self) -> bool {
