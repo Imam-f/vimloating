@@ -105,6 +105,12 @@ pub(super) fn handle_key(
             KeyCode::Char('u') if ctrl => {
                 editor.output_top = editor.output_top.saturating_sub(page)
             }
+            KeyCode::Char('n') if ctrl => {
+                editor.output_top = (editor.output_top + page).min(max_top)
+            }
+            KeyCode::Char('p') if ctrl => {
+                editor.output_top = editor.output_top.saturating_sub(page)
+            }
             KeyCode::Char('j') | KeyCode::Down => {
                 editor.output_top = (editor.output_top + 1).min(max_top)
             }

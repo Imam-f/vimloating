@@ -172,9 +172,9 @@ fn handle_keyboard_input(
             let (rows, _, _, _) = text_grid(*font_size);
             let max_top = output_rows.saturating_sub(rows);
             let page = (rows / 2).max(1);
-            if input.pressed.contains(&KeyCode::D) {
+            if input.pressed.contains(&KeyCode::D) || input.pressed.contains(&KeyCode::N) {
                 editor.output_top = (editor.output_top + page).min(max_top);
-            } else if input.pressed.contains(&KeyCode::U) {
+            } else if input.pressed.contains(&KeyCode::U) || input.pressed.contains(&KeyCode::P) {
                 editor.output_top = editor.output_top.saturating_sub(page);
             }
         }

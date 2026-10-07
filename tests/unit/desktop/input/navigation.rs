@@ -139,6 +139,22 @@ fn desktop_buffer_list_scrolls_with_ctrl_u_and_ctrl_d() {
         "",
     );
     assert_eq!(editor.output_top, 0);
+    keyboard.frame(
+        &mut editor,
+        0.2,
+        &[KeyCode::LeftControl, KeyCode::N],
+        &[KeyCode::N],
+        "",
+    );
+    assert_eq!(editor.output_top, page);
+    keyboard.frame(
+        &mut editor,
+        0.3,
+        &[KeyCode::LeftControl, KeyCode::P],
+        &[KeyCode::P],
+        "",
+    );
+    assert_eq!(editor.output_top, 0);
     assert_eq!(editor.cursor, vimloating::editor::Pos::default());
 }
 

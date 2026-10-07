@@ -136,6 +136,10 @@ fn buffer_list_scrolls_with_ctrl_u_and_ctrl_d_without_moving_the_cursor() {
     assert_eq!(editor.output_top, 4);
     control(&mut editor, &mut ui, 'u');
     assert_eq!(editor.output_top, 0);
+    control(&mut editor, &mut ui, 'n');
+    assert_eq!(editor.output_top, 4);
+    control(&mut editor, &mut ui, 'p');
+    assert_eq!(editor.output_top, 0);
     assert_eq!(editor.cursor, Pos::default());
 }
 
