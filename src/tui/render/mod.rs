@@ -58,7 +58,7 @@ pub(super) fn draw(frame: &mut Frame, editor: &Editor, ui: &Ui) {
     let (rows, cols, gutter) = grid(area, editor);
     let content_height = area.height.saturating_sub(2);
     let content = Rect::new(area.x, area.y, area.width, content_height);
-    if ui.help || matches!(editor.mode, Mode::ShellOutput | Mode::BufferList) {
+    if ui.help || editor.mode == Mode::ShellOutput {
         let text = if ui.help {
             HELP
         } else {
@@ -220,6 +220,29 @@ pub(super) fn draw(frame: &mut Frame, editor: &Editor, ui: &Ui) {
                     area.x + gutter as u16 + x as u16,
                     area.y + (index - editor.top) as u16,
                 ));
+            }
+        }
+    }
+    if editor.mode == Mode::BufferList || editor.buffer_list_visible {
+        if let Some(output) = editor.output_view.as_deref() {
+            let output_lines: Vec<_> = output.lines().collect();
+            let visible_rows = output_lines.len().min(content_height as usize);
+            if visible_rows > 0 {
+                let max_top = output_lines.len().saturating_sub(visible_rows);
+                let top = editor.output_top.min(max_top);
+                let lines: Vec<Line> = output_lines
+                    .iter()
+                    .skip(top)
+                    .take(visible_rows)
+                    .map(|line| Line::raw(safe_text(line)))
+                    .collect();
+                let output_area = Rect::new(
+                    area.x,
+                    area.y + content_height - visible_rows as u16,
+                    area.width,
+                    visible_rows as u16,
+                );
+                frame.render_widget(Paragraph::new(lines).style(base), output_area);
             }
         }
     }

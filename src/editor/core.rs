@@ -25,6 +25,8 @@ impl Editor {
             char_find_highlight: None,
             char_find_hints: Vec::new(),
             output_view: None,
+            output_top: 0,
+            buffer_list_visible: false,
             theme: Theme::default(),
             buffer_action: None,
             top: 0,
@@ -176,9 +178,11 @@ impl Editor {
         }
         self.search_task = None;
         self.char_find_hints.clear();
-        if matches!(self.mode, Mode::ShellOutput | Mode::BufferList) {
+        if matches!(self.mode, Mode::ShellOutput | Mode::BufferList) || self.buffer_list_visible {
             self.output_view = None;
+            self.output_top = 0;
         }
+        self.buffer_list_visible = false;
         if self.mode == Mode::Insert {
             self.cursor.col = self.cursor.col.saturating_sub(1);
         }
@@ -306,6 +310,8 @@ impl Editor {
 
     pub fn show_buffer_list(&mut self, text: String) {
         self.output_view = Some(text);
+        self.output_top = 0;
+        self.buffer_list_visible = true;
         self.mode = Mode::BufferList;
         self.message = "Buffer list · Esc to close · :b id/name to switch".into();
     }

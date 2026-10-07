@@ -124,3 +124,29 @@ fn output_scroll_does_not_move_the_buffer_cursor_and_escape_restores_editor() {
     assert_eq!(editor.text(), "keep this");
     assert!(editor.output_view.is_none());
 }
+
+#[test]
+fn buffer_list_scrolls_with_ctrl_u_and_ctrl_d_without_moving_the_cursor() {
+    let mut editor = Editor::new("keep this", None);
+    editor.mode = Mode::BufferList;
+    editor.output_view = Some((0..30).map(|n| format!("buffer {n}\n")).collect());
+    let mut ui = Ui::default();
+
+    control(&mut editor, &mut ui, 'd');
+    assert_eq!(editor.output_top, 4);
+    control(&mut editor, &mut ui, 'u');
+    assert_eq!(editor.output_top, 0);
+    assert_eq!(editor.cursor, Pos::default());
+}
+
+#[test]
+fn buffer_list_can_open_command_mode_without_hiding_the_panel() {
+    let mut editor = Editor::new("keep this", None);
+    editor.show_buffer_list("Buffers\n%   1  current".into());
+    let mut ui = Ui::default();
+
+    press(&mut editor, &mut ui, KeyCode::Char(':'));
+    assert_eq!(editor.mode, Mode::Command);
+    assert!(editor.buffer_list_visible);
+    assert!(editor.output_view.is_some());
+}

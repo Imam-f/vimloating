@@ -96,3 +96,21 @@ fn terminal_cells_highlights_and_prompt_remain_aligned_at_small_sizes() {
         assert!(x < width && y < height);
     }
 }
+
+#[test]
+fn buffer_list_is_a_compact_bottom_anchored_overlay() {
+    let mut editor = Editor::new("source line", None);
+    editor.show_buffer_list("Buffers\n%   1  current\n:b switch".into());
+    editor.mode = Mode::Command;
+    editor.prompt = "w".into();
+    let ui = Ui::default();
+    let mut terminal = Terminal::new(TestBackend::new(30, 10)).unwrap();
+    terminal.draw(|frame| draw(frame, &editor, &ui)).unwrap();
+
+    let buffer = terminal.backend().buffer();
+    let row = |y| (0..30).map(|x| buffer[(x, y)].symbol()).collect::<String>();
+    assert!(row(0).contains("source line"));
+    assert!(row(5).contains("Buffers"));
+    assert!(row(6).contains("%   1  current"));
+    assert!(row(7).contains(":b switch"));
+}

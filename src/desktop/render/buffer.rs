@@ -312,7 +312,7 @@ pub fn draw_buffer(
         }
     }
 
-    if matches!(editor.mode, Mode::ShellOutput | Mode::BufferList) {
+    if editor.mode == Mode::ShellOutput {
         let panel_height = 480.0;
         let panel_y = 890.0 - panel_height - 12.0;
         let output_top = panel_y + 12.0;
@@ -358,6 +358,44 @@ pub fn draw_buffer(
                     font,
                     scale,
                 );
+            }
+        }
+    }
+
+    if editor.mode == Mode::BufferList || editor.buffer_list_visible {
+        if let Some(output) = &editor.output_view {
+            let output_lines: Vec<_> = output.lines().collect();
+            let visible_rows = output_lines.len().min(rows);
+            if visible_rows > 0 {
+                let max_top = output_lines.len().saturating_sub(visible_rows);
+                let top = editor.output_top.min(max_top);
+                let panel_height = visible_rows as f32 * line_height;
+                let panel_y = 878.0 - panel_height;
+                let output_y = panel_y;
+                ui_rectangle(
+                    94.0,
+                    panel_y,
+                    1480.0,
+                    panel_height,
+                    palette.background,
+                    scale,
+                );
+                for visible in 0..visible_rows {
+                    let line: String = output_lines[top + visible].chars().take(cols).collect();
+                    ui_label(
+                        &line,
+                        TEXT_X,
+                        output_y + visible as f32 * line_height + baseline,
+                        font_size,
+                        if visible == 0 {
+                            palette.accent
+                        } else {
+                            palette.text
+                        },
+                        font,
+                        scale,
+                    );
+                }
             }
         }
     }
